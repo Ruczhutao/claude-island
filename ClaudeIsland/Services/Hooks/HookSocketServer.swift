@@ -14,6 +14,7 @@ private let logger = Logger(subsystem: "com.claudeisland", category: "Hooks")
 
 /// Event received from Claude Code hooks
 struct HookEvent: Codable, Sendable {
+    let providerRawValue: String?
     let sessionId: String
     let cwd: String
     let event: String
@@ -25,18 +26,31 @@ struct HookEvent: Codable, Sendable {
     let toolUseId: String?
     let notificationType: String?
     let message: String?
+    let transcriptPath: String?
+    let model: String?
+    let prompt: String?
+    let lastAssistantMessage: String?
+    let permissionMode: String?
+    let sessionStartSource: String?
 
     enum CodingKeys: String, CodingKey {
+        case providerRawValue = "provider"
         case sessionId = "session_id"
         case cwd, event, status, pid, tty, tool
         case toolInput = "tool_input"
         case toolUseId = "tool_use_id"
         case notificationType = "notification_type"
         case message
+        case transcriptPath = "transcript_path"
+        case model, prompt
+        case lastAssistantMessage = "last_assistant_message"
+        case permissionMode = "permission_mode"
+        case sessionStartSource = "session_start_source"
     }
 
     /// Create a copy with updated toolUseId
-    init(sessionId: String, cwd: String, event: String, status: String, pid: Int?, tty: String?, tool: String?, toolInput: [String: AnyCodable]?, toolUseId: String?, notificationType: String?, message: String?) {
+    init(providerRawValue: String?, sessionId: String, cwd: String, event: String, status: String, pid: Int?, tty: String?, tool: String?, toolInput: [String: AnyCodable]?, toolUseId: String?, notificationType: String?, message: String?, transcriptPath: String?, model: String?, prompt: String?, lastAssistantMessage: String?, permissionMode: String?, sessionStartSource: String?) {
+        self.providerRawValue = providerRawValue
         self.sessionId = sessionId
         self.cwd = cwd
         self.event = event
@@ -48,6 +62,16 @@ struct HookEvent: Codable, Sendable {
         self.toolUseId = toolUseId
         self.notificationType = notificationType
         self.message = message
+        self.transcriptPath = transcriptPath
+        self.model = model
+        self.prompt = prompt
+        self.lastAssistantMessage = lastAssistantMessage
+        self.permissionMode = permissionMode
+        self.sessionStartSource = sessionStartSource
+    }
+
+    nonisolated var provider: SessionProvider {
+        SessionProvider(rawValue: providerRawValue ?? SessionProvider.claude.rawValue) ?? .claude
     }
 
     var sessionPhase: SessionPhase {
@@ -77,8 +101,17 @@ struct HookEvent: Codable, Sendable {
     }
 
     /// Whether this event expects a response (permission request)
+    /// Note: Only Claude supports full in-notch approval (allow/deny via PermissionRequest)
+    /// Kimi and Codex only notify about approval needs, user must go to terminal
     nonisolated var expectsResponse: Bool {
-        event == "PermissionRequest" && status == "waiting_for_approval"
+        // Only Claude's PermissionRequest expects a response
+        if event == "PermissionRequest" && status == "waiting_for_approval" {
+            return true
+        }
+        // Note: Codex and Kimi used to block on PreToolUse, but they don't support
+        // 'allow' via hook response - user must go to terminal. So we don't expect
+        // a response from the app for these providers.
+        return false
     }
 }
 
@@ -437,6 +470,7 @@ class HookSocketServer {
             logger.debug("Permission request - keeping socket open for \(event.sessionId.prefix(8), privacy: .public) tool:\(toolUseId.prefix(12), privacy: .public)")
 
             let updatedEvent = HookEvent(
+                providerRawValue: event.providerRawValue,
                 sessionId: event.sessionId,
                 cwd: event.cwd,
                 event: event.event,
@@ -447,7 +481,13 @@ class HookSocketServer {
                 toolInput: event.toolInput,
                 toolUseId: toolUseId,  // Use resolved toolUseId
                 notificationType: event.notificationType,
-                message: event.message
+                message: event.message,
+                transcriptPath: event.transcriptPath,
+                model: event.model,
+                prompt: event.prompt,
+                lastAssistantMessage: event.lastAssistantMessage,
+                permissionMode: event.permissionMode,
+                sessionStartSource: event.sessionStartSource
             )
 
             let pending = PendingPermission(

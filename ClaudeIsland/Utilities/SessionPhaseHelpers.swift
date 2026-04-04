@@ -28,24 +28,24 @@ struct SessionPhaseHelpers {
     static func phaseDescription(for phase: SessionPhase) -> String {
         switch phase {
         case .waitingForApproval(let ctx):
-            return "Waiting for approval: \(ctx.toolName)"
+            return "等待批准：\(ctx.toolName)"
         case .waitingForInput:
-            return "Ready for input"
+            return "等待输入"
         case .processing:
-            return "Processing..."
+            return "处理中..."
         case .compacting:
-            return "Compacting context..."
+            return "压缩上下文中..."
         case .idle:
-            return "Idle"
+            return "空闲"
         case .ended:
-            return "Ended"
+            return "已结束"
         }
     }
 
     /// Format time ago string
     static func timeAgo(_ date: Date, now: Date = Date()) -> String {
         let seconds = Int(now.timeIntervalSince(date))
-        if seconds < 5 { return "now" }
+        if seconds < 5 { return "刚刚" }
         if seconds < 60 { return "\(seconds)s" }
         if seconds < 3600 { return "\(seconds / 60)m" }
         if seconds < 86400 { return "\(seconds / 3600)h" }

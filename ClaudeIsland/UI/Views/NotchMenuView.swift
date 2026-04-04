@@ -26,7 +26,7 @@ struct NotchMenuView: View {
             // Back button
             MenuRow(
                 icon: "chevron.left",
-                label: "Back"
+                label: "返回"
             ) {
                 viewModel.toggleMenu()
             }
@@ -46,7 +46,7 @@ struct NotchMenuView: View {
             // System settings
             MenuToggleRow(
                 icon: "power",
-                label: "Launch at Login",
+                label: "开机启动",
                 isOn: launchAtLogin
             ) {
                 do {
@@ -64,7 +64,7 @@ struct NotchMenuView: View {
 
             MenuToggleRow(
                 icon: "arrow.triangle.2.circlepath",
-                label: "Hooks",
+                label: "钩子",
                 isOn: hooksInstalled
             ) {
                 if hooksInstalled {
@@ -87,10 +87,24 @@ struct NotchMenuView: View {
 
             MenuRow(
                 icon: "star",
-                label: "Star on GitHub"
+                label: "在 GitHub 上标星"
             ) {
-                if let url = URL(string: "https://github.com/farouqaldori/claude-island") {
+                if let url = URL(string: "https://github.com/Ruczhutao/claude-island") {
                     NSWorkspace.shared.open(url)
+                }
+                // Close notch after opening URL
+                viewModel.notchCloseAfterDelay(0.1)
+            }
+            
+            // Settings
+            MenuRow(
+                icon: "gear",
+                label: "设置..."
+            ) {
+                // Use longer delay and ensure we're on main thread after notch closes
+                viewModel.notchClose()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    PreferencesWindowController.shared.show()
                 }
             }
 
@@ -100,10 +114,13 @@ struct NotchMenuView: View {
 
             MenuRow(
                 icon: "xmark.circle",
-                label: "Quit",
+                label: "退出",
                 isDestructive: true
             ) {
-                NSApplication.shared.terminate(nil)
+                viewModel.notchClose()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    NSApplication.shared.terminate(nil)
+                }
             }
         }
         .padding(.horizontal, 8)
@@ -199,7 +216,7 @@ struct UpdateRow: View {
                 Image(systemName: "checkmark")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundColor(TerminalColors.green)
-                Text("Up to date")
+                Text("已是最新")
                     .font(.system(size: 11))
                     .foregroundColor(TerminalColors.green)
             }
@@ -307,13 +324,13 @@ struct UpdateRow: View {
     private var label: String {
         switch updateManager.state {
         case .idle:
-            return "Check for Updates"
+            return "检查更新"
         case .checking:
             return "Checking..."
         case .upToDate:
-            return "Check for Updates"
+            return "检查更新"
         case .found:
-            return "Download Update"
+            return "下载更新"
         case .downloading:
             return "Downloading..."
         case .extracting:
@@ -323,7 +340,7 @@ struct UpdateRow: View {
         case .installing:
             return "Installing..."
         case .error:
-            return "Update failed"
+            return "更新失败"
         }
     }
 
@@ -386,7 +403,7 @@ struct AccessibilityRow: View {
                 .foregroundColor(textColor)
                 .frame(width: 16)
 
-            Text("Accessibility")
+            Text("辅助功能")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(textColor)
 
@@ -397,12 +414,12 @@ struct AccessibilityRow: View {
                     .fill(TerminalColors.green)
                     .frame(width: 6, height: 6)
 
-                Text("On")
+                Text("已开启")
                     .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.4))
             } else {
                 Button(action: openAccessibilitySettings) {
-                    Text("Enable")
+                    Text("开启")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.black)
                         .padding(.horizontal, 10)
@@ -447,7 +464,13 @@ struct MenuRow: View {
     @State private var isHovered = false
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            // Delay the action to let the button animation complete
+            // and avoid interrupting the click event
+            DispatchQueue.main.async {
+                action()
+            }
+        } label: {
             HStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 12))
@@ -488,7 +511,12 @@ struct MenuToggleRow: View {
     @State private var isHovered = false
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            // Dispatch async to avoid interrupting the click event
+            DispatchQueue.main.async {
+                action()
+            }
+        } label: {
             HStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 12))
@@ -505,7 +533,7 @@ struct MenuToggleRow: View {
                     .fill(isOn ? TerminalColors.green : Color.white.opacity(0.3))
                     .frame(width: 6, height: 6)
 
-                Text(isOn ? "On" : "Off")
+                Text(isOn ? "开启" : "关闭")
                     .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.4))
             }

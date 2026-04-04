@@ -138,7 +138,7 @@ struct EditResultContent: View {
             }
 
             if result.userModified {
-                Text("(User modified)")
+                Text("(用户已修改)")
                     .font(.system(size: 10))
                     .foregroundColor(.orange.opacity(0.7))
             }
@@ -185,7 +185,7 @@ struct BashResultContent: View {
                 HStack(spacing: 4) {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.system(size: 10))
-                    Text("Background task: \(bgId)")
+                    Text("后台任务：\(bgId)")
                         .font(.system(size: 10, design: .monospaced))
                 }
                 .foregroundColor(.blue.opacity(0.7))
@@ -206,7 +206,7 @@ struct BashResultContent: View {
             // Stderr (shown in red)
             if !result.stderr.isEmpty {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("stderr:")
+                    Text("错误输出：")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.red.opacity(0.7))
                     Text(result.stderr)
@@ -218,7 +218,7 @@ struct BashResultContent: View {
 
             // Empty state
             if !result.hasOutput && result.backgroundTaskId == nil && result.returnCodeInterpretation == nil {
-                Text("(No content)")
+                Text("(无内容)")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
             }
@@ -237,7 +237,7 @@ struct GrepResultContent: View {
             case .filesWithMatches:
                 // Show file list
                 if result.filenames.isEmpty {
-                    Text("No matches found")
+                    Text("未找到匹配")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundColor(.white.opacity(0.3))
                 } else {
@@ -249,13 +249,13 @@ struct GrepResultContent: View {
                 if let content = result.content, !content.isEmpty {
                     CodePreview(content: content, maxLines: 15)
                 } else {
-                    Text("No matches found")
+                    Text("未找到匹配")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundColor(.white.opacity(0.3))
                 }
 
             case .count:
-                Text("\(result.numFiles) files with matches")
+                Text("\(result.numFiles) 个文件匹配")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.5))
             }
@@ -271,14 +271,14 @@ struct GlobResultContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if result.filenames.isEmpty {
-                Text("No files found")
+                Text("未找到文件")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
             } else {
                 FileListView(files: result.filenames, limit: 10)
 
                 if result.truncated {
-                    Text("... and more (truncated)")
+                    Text("... 更多内容(已截断)")
                         .font(.system(size: 10))
                         .foregroundColor(.white.opacity(0.3))
                 }
@@ -343,13 +343,13 @@ struct TaskResultContent: View {
                     .foregroundColor(statusColor)
 
                 if let duration = result.totalDurationMs {
-                    Text("\(formatDuration(duration))")
+                    Text("耗时 \(formatDuration(duration))")
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(.white.opacity(0.4))
                 }
 
                 if let tools = result.totalToolUseCount {
-                    Text("\(tools) tools")
+                    Text("\(tools) 个工具")
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(.white.opacity(0.4))
                 }
@@ -429,7 +429,7 @@ struct WebSearchResultContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if result.results.isEmpty {
-                Text("No results found")
+                Text("未找到结果")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
             } else {
@@ -450,7 +450,7 @@ struct WebSearchResultContent: View {
                 }
 
                 if result.results.count > 5 {
-                    Text("... and \(result.results.count - 5) more results")
+                    Text("... 还有 \(result.results.count - 5) 个结果")
                         .font(.system(size: 10))
                         .foregroundColor(.white.opacity(0.3))
                 }
@@ -498,12 +498,12 @@ struct BashOutputResultContent: View {
         VStack(alignment: .leading, spacing: 4) {
             // Status
             HStack(spacing: 6) {
-                Text("Status: \(result.status)")
+                Text("状态：\(result.status)")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.white.opacity(0.5))
 
                 if let exitCode = result.exitCode {
-                    Text("Exit: \(exitCode)")
+                    Text("退出码：\(exitCode)")
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(exitCode == 0 ? .green.opacity(0.6) : .red.opacity(0.6))
                 }
@@ -610,7 +610,7 @@ struct GenericResultContent: View {
         if let content = result.rawContent, !content.isEmpty {
             GenericTextContent(text: content)
         } else {
-            Text("Completed")
+            Text("已完成")
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundColor(.white.opacity(0.3))
         }
@@ -695,7 +695,7 @@ struct FileCodeView: View {
 
             // Bottom overflow indicator
             if hasMoreAfter {
-                Text("... (\(lines.count - maxLines) more lines)")
+                Text("... 还有 \(lines.count - maxLines) 行")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -753,7 +753,7 @@ struct CodePreview: View {
             }
 
             if hasMore {
-                Text("... (\(lines.count - maxLines) more lines)")
+                Text("... 还有 \(lines.count - maxLines) 行")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundColor(.white.opacity(0.3))
                     .padding(.top, 2)
@@ -781,7 +781,7 @@ struct FileListView: View {
             }
 
             if files.count > limit {
-                Text("... and \(files.count - limit) more files")
+                Text("... 还有 \(files.count - limit) 个文件")
                     .font(.system(size: 10))
                     .foregroundColor(.white.opacity(0.3))
             }
@@ -815,7 +815,7 @@ struct DiffView: View {
             }
 
             if patches.count > 3 {
-                Text("... and \(patches.count - 3) more hunks")
+                Text("... 还有 \(patches.count - 3) 个差异块")
                     .font(.system(size: 10))
                     .foregroundColor(.white.opacity(0.3))
             }

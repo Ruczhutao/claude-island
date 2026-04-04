@@ -11,18 +11,18 @@ struct MCPToolFormatter {
 
     /// Tool aliases for friendlier display names
     private static let toolAliases: [String: String] = [
-        "AgentOutputTool": "Await Agent",
-        "AskUserQuestion": "Question",
-        "TodoWrite": "Todo",
-        "TodoRead": "Todo",
-        "WebFetch": "Fetch",
-        "WebSearch": "Search",
-        "NotebookEdit": "Notebook",
-        "BashOutput": "Bash",
-        "KillShell": "Shell",
-        "EnterPlanMode": "Plan",
-        "ExitPlanMode": "Plan",
-        "SlashCommand": "Command",
+        "AgentOutputTool": "等待代理",
+        "AskUserQuestion": "提问",
+        "TodoWrite": "待办",
+        "TodoRead": "待办",
+        "WebFetch": "获取",
+        "WebSearch": "搜索",
+        "NotebookEdit": "笔记本",
+        "BashOutput": "命令行",
+        "KillShell": "终止终端",
+        "EnterPlanMode": "计划",
+        "ExitPlanMode": "计划",
+        "SlashCommand": "命令",
     ]
 
     /// Checks if tool name is in MCP format (e.g., "mcp__deepwiki__ask_question")

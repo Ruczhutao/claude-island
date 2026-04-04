@@ -16,6 +16,9 @@ struct SessionState: Equatable, Identifiable, Sendable {
     let sessionId: String
     let cwd: String
     let projectName: String
+    let provider: SessionProvider
+    var transcriptPath: String?
+    var model: String?
 
     // MARK: - Instance Metadata
 
@@ -68,6 +71,9 @@ struct SessionState: Equatable, Identifiable, Sendable {
         sessionId: String,
         cwd: String,
         projectName: String? = nil,
+        provider: SessionProvider = .claude,
+        transcriptPath: String? = nil,
+        model: String? = nil,
         pid: Int? = nil,
         tty: String? = nil,
         isInTmux: Bool = false,
@@ -86,6 +92,9 @@ struct SessionState: Equatable, Identifiable, Sendable {
         self.sessionId = sessionId
         self.cwd = cwd
         self.projectName = projectName ?? URL(fileURLWithPath: cwd).lastPathComponent
+        self.provider = provider
+        self.transcriptPath = transcriptPath
+        self.model = model
         self.pid = pid
         self.tty = tty
         self.isInTmux = isInTmux
@@ -182,6 +191,17 @@ struct SessionState: Equatable, Identifiable, Sendable {
     /// Whether the session can be interacted with
     var canInteract: Bool {
         phase.needsAttention
+    }
+
+    var supportsChatHistory: Bool {
+        // Claude, Codex, and Kimi all support chat history and approval
+        provider == .claude || provider == .codex || provider == .kimi
+    }
+    
+    /// Whether this provider supports in-notch approval (Claude only)
+    /// Kimi and Codex only support blocking (deny), not allow - user must go to terminal
+    var supportsInNotchApproval: Bool {
+        provider == .claude
     }
 }
 

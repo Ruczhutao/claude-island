@@ -120,9 +120,12 @@ actor SessionStore {
         let isNewSession = sessions[sessionId] == nil
         var session = sessions[sessionId] ?? createSession(from: event)
 
-        // Track new session in Mixpanel
+        // Track new session in Mixpanel and play sound
         if isNewSession {
             Mixpanel.mainInstance().track(event: "Session Started")
+            await MainActor.run {
+                SoundManager.shared.play(.sessionStart)
+            }
         }
 
         session.pid = event.pid
@@ -133,6 +136,8 @@ actor SessionStore {
         if let tty = event.tty {
             session.tty = tty.replacingOccurrences(of: "/dev/", with: "")
         }
+        session.transcriptPath = event.transcriptPath ?? session.transcriptPath
+        session.model = event.model ?? session.model
         session.lastActivity = Date()
 
         if event.status == "ended" {
@@ -154,6 +159,7 @@ actor SessionStore {
             updateToolStatus(in: &session, toolId: toolUseId, status: .waitingForApproval)
         }
 
+        updateNonClaudeConversationInfo(event: event, session: &session)
         processToolTracking(event: event, session: &session)
         processSubagentTracking(event: event, session: &session)
 
@@ -174,6 +180,9 @@ actor SessionStore {
             sessionId: event.sessionId,
             cwd: event.cwd,
             projectName: URL(fileURLWithPath: event.cwd).lastPathComponent,
+            provider: event.provider,
+            transcriptPath: event.transcriptPath,
+            model: event.model,
             pid: event.pid,
             tty: event.tty?.replacingOccurrences(of: "/dev/", with: ""),
             isInTmux: false,  // Will be updated
@@ -189,7 +198,7 @@ actor SessionStore {
 
                 // Skip creating top-level placeholder for subagent tools
                 // They'll appear under their parent Task instead
-                let isSubagentTool = session.subagentState.hasActiveSubagent && toolName != "Task"
+                let isSubagentTool = (event.provider == .claude || event.provider == .kimi) && session.subagentState.hasActiveSubagent && toolName != "Task"
                 if isSubagentTool {
                     return
                 }
@@ -209,12 +218,15 @@ actor SessionStore {
                         }
                     }
 
+                    // Codex and Kimi use PreToolUse as the approval point, so mark as waiting
+                    let initialStatus: ToolStatus = (event.provider == .codex || event.provider == .kimi) ? .waitingForApproval : .running
+
                     let placeholderItem = ChatHistoryItem(
                         id: toolUseId,
                         type: .toolCall(ToolCallItem(
                             name: toolName,
                             input: input,
-                            status: .running,
+                            status: initialStatus,
                             result: nil,
                             structuredResult: nil,
                             subagentTools: []
@@ -252,6 +264,7 @@ actor SessionStore {
     }
 
     private func processSubagentTracking(event: HookEvent, session: inout SessionState) {
+        guard event.provider == .claude || event.provider == .kimi else { return }
         switch event.event {
         case "PreToolUse":
             if event.tool == "Task", let toolUseId = event.toolUseId {
@@ -273,6 +286,67 @@ actor SessionStore {
         default:
             break
         }
+    }
+
+    private func updateNonClaudeConversationInfo(event: HookEvent, session: inout SessionState) {
+        guard event.provider != .claude else { return }
+
+        let existing = session.conversationInfo
+        var summary = existing.summary
+        var lastMessage = existing.lastMessage
+        var lastMessageRole = existing.lastMessageRole
+        var lastToolName = existing.lastToolName
+        var firstUserMessage = existing.firstUserMessage
+        var lastUserMessageDate = existing.lastUserMessageDate
+
+        switch event.event {
+        case "UserPromptSubmit":
+            if let prompt = sanitizedHookText(event.prompt) {
+                if firstUserMessage == nil {
+                    firstUserMessage = truncated(prompt, maxLength: 50)
+                }
+                lastMessage = truncated(prompt, maxLength: 80)
+                lastMessageRole = "user"
+                lastToolName = nil
+                lastUserMessageDate = Date()
+            }
+
+        case "Stop":
+            if let response = sanitizedHookText(event.lastAssistantMessage) {
+                lastMessage = truncated(response, maxLength: 80)
+                lastMessageRole = "assistant"
+                lastToolName = nil
+            }
+
+        case "SessionStart":
+            if summary == nil, let source = event.sessionStartSource {
+                summary = "Codex (\(source))"
+            }
+
+        default:
+            break
+        }
+
+        session.conversationInfo = ConversationInfo(
+            summary: summary,
+            lastMessage: lastMessage,
+            lastMessageRole: lastMessageRole,
+            lastToolName: lastToolName,
+            firstUserMessage: firstUserMessage,
+            lastUserMessageDate: lastUserMessageDate
+        )
+    }
+
+    private func sanitizedHookText(_ text: String?) -> String? {
+        guard let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
+    }
+
+    private func truncated(_ text: String, maxLength: Int) -> String {
+        guard text.count > maxLength else { return text }
+        return String(text.prefix(maxLength)) + "..."
     }
 
     // MARK: - Subagent Event Handlers

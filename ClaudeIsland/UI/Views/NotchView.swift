@@ -23,6 +23,7 @@ struct NotchView: View {
     @State private var previousPendingIds: Set<String> = []
     @State private var previousWaitingForInputIds: Set<String> = []
     @State private var waitingForInputTimestamps: [String: Date] = [:]  // sessionId -> when it entered waitingForInput
+    @State private var approvalSoundDelays: [String: Task<Void, Never>] = [:]  // Delayed sound tasks for Kimi/Codex
     @State private var isVisible: Bool = false
     @State private var isHovering: Bool = false
     @State private var isBouncing: Bool = false
@@ -172,15 +173,9 @@ struct NotchView: View {
                     .animation(.smooth, value: hasPendingPermission)
                     .animation(.smooth, value: hasWaitingForInput)
                     .animation(.spring(response: 0.3, dampingFraction: 0.5), value: isBouncing)
-                    .contentShape(Rectangle())
                     .onHover { hovering in
                         withAnimation(.spring(response: 0.38, dampingFraction: 0.8)) {
                             isHovering = hovering
-                        }
-                    }
-                    .onTapGesture {
-                        if viewModel.status != .opened {
-                            viewModel.notchOpen(reason: .click)
                         }
                     }
             }
@@ -199,7 +194,9 @@ struct NotchView: View {
             handleStatusChange(from: oldStatus, to: newStatus)
         }
         .onChange(of: sessionMonitor.pendingInstances) { _, sessions in
-            handlePendingSessionsChange(sessions)
+            // Only handle sessions that are actually waiting for approval (not waitingForInput)
+            let approvalSessions = sessions.filter { $0.phase.isWaitingForApproval }
+            handlePendingSessionsChange(approvalSessions)
         }
         .onChange(of: sessionMonitor.instances) { _, instances in
             handleProcessingChange()
@@ -216,6 +213,58 @@ struct NotchView: View {
     /// Whether to show the expanded closed state (processing, pending permission, or waiting for input)
     private var showClosedActivity: Bool {
         isProcessing || hasPendingPermission || hasWaitingForInput
+    }
+    
+    /// Get the dominant provider for current activity (for icon color)
+    private var dominantProvider: SessionProvider {
+        // Priority: processing > pending > waiting for input
+        if isProcessing || hasPendingPermission {
+            // Find the first processing or pending session
+            if let session = sessionMonitor.instances.first(where: { 
+                $0.phase == .processing || $0.phase.isWaitingForApproval 
+            }) {
+                return session.provider
+            }
+        }
+        // Default to claude
+        return .claude
+    }
+    
+    /// Provider color for current activity
+    private var activityColor: Color {
+        switch dominantProvider {
+        case .claude:
+            return Color(red: 0.85, green: 0.47, blue: 0.34) // Orange
+        case .codex:
+            return Color(red: 0.2, green: 0.6, blue: 1.0) // Blue
+        case .kimi:
+            return Color(red: 0.0, green: 0.55, blue: 1.0) // Kimi blue
+        }
+    }
+    
+    /// Provider letter for current activity
+    private var activityLetter: String {
+        switch dominantProvider {
+        case .claude:
+            return "C"
+        case .codex:
+            return "X"
+        case .kimi:
+            return "K"
+        }
+    }
+    
+    /// Provider icon view based on dominant provider
+    @ViewBuilder
+    private func providerIcon(size: CGFloat, animate: Bool) -> some View {
+        switch dominantProvider {
+        case .claude:
+            ClaudeIcon(size: size, color: activityColor, animate: animate)
+        case .codex:
+            CodexIcon(size: size, color: activityColor, animate: animate)
+        case .kimi:
+            KimiIcon(size: size, color: activityColor, animate: animate)
+        }
     }
 
     @ViewBuilder
@@ -246,31 +295,33 @@ struct NotchView: View {
     @ViewBuilder
     private var headerRow: some View {
         HStack(spacing: 0) {
-            // Left side - crab + optional permission indicator (visible when processing, pending, or waiting for input)
-            if showClosedActivity {
-                HStack(spacing: 4) {
-                    ClaudeCrabIcon(size: 14, animateLegs: isProcessing)
-                        .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: showClosedActivity)
+            // Left side - pixel dog icon always visible
+            HStack(spacing: 4) {
+                // Pixel dog icon - always shown
+                // - animate: ear wiggle when any CLI is processing
+                // - breathe: opacity pulse when no activity
+                DogIcon(size: 26, color: .white, animate: isProcessing, breathe: !showClosedActivity)
+                    .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: showClosedActivity)
 
-                    // Permission indicator only (amber) - waiting for input shows checkmark on right
-                    if hasPendingPermission {
-                        PermissionIndicatorIcon(size: 14, color: Color(red: 0.85, green: 0.47, blue: 0.34))
-                            .matchedGeometryEffect(id: "status-indicator", in: activityNamespace, isSource: showClosedActivity)
-                    }
+                // Permission indicator only when pending (amber)
+                if hasPendingPermission {
+                    PermissionIndicatorIcon(size: 14, color: Color(red: 0.85, green: 0.47, blue: 0.34))
+                        .matchedGeometryEffect(id: "status-indicator", in: activityNamespace, isSource: showClosedActivity)
                 }
-                .frame(width: viewModel.status == .opened ? nil : sideWidth + (hasPendingPermission ? 18 : 0))
-                .padding(.leading, viewModel.status == .opened ? 8 : 0)
             }
+            .frame(width: viewModel.status == .opened ? nil : sideWidth + (hasPendingPermission ? 18 : 0))
+            .padding(.leading, viewModel.status == .opened ? 8 : 0)
 
             // Center content
             if viewModel.status == .opened {
                 // Opened: show header content
                 openedHeaderContent
             } else if !showClosedActivity {
-                // Closed without activity: empty space
+                // Closed without activity: show dog icon with subtle breathing animation
+                // The dog icon is already shown on the left, just use black spacer here
                 Rectangle()
-                    .fill(.clear)
-                    .frame(width: closedNotchSize.width - 20)
+                    .fill(.black)
+                    .frame(width: closedNotchSize.width - cornerRadiusInsets.closed.top)
             } else {
                 // Closed with activity: black spacer (with optional bounce)
                 Rectangle()
@@ -278,19 +329,7 @@ struct NotchView: View {
                     .frame(width: closedNotchSize.width - cornerRadiusInsets.closed.top + (isBouncing ? 16 : 0))
             }
 
-            // Right side - spinner when processing/pending, checkmark when waiting for input
-            if showClosedActivity {
-                if isProcessing || hasPendingPermission {
-                    ProcessingSpinner()
-                        .matchedGeometryEffect(id: "spinner", in: activityNamespace, isSource: showClosedActivity)
-                        .frame(width: viewModel.status == .opened ? 20 : sideWidth)
-                } else if hasWaitingForInput {
-                    // Checkmark for waiting-for-input on the right side
-                    ReadyForInputIndicatorIcon(size: 14, color: TerminalColors.green)
-                        .matchedGeometryEffect(id: "spinner", in: activityNamespace, isSource: showClosedActivity)
-                        .frame(width: viewModel.status == .opened ? 20 : sideWidth)
-                }
-            }
+            // Right side indicator removed - only show in conversation list, not in notch header
         }
         .frame(height: closedNotchSize.height)
     }
@@ -304,38 +343,37 @@ struct NotchView: View {
     @ViewBuilder
     private var openedHeaderContent: some View {
         HStack(spacing: 12) {
-            // Show static crab only if not showing activity in headerRow
-            // (headerRow handles crab + indicator when showClosedActivity is true)
-            if !showClosedActivity {
-                ClaudeCrabIcon(size: 14)
-                    .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: !showClosedActivity)
-                    .padding(.leading, 8)
-            }
+            // Show static icon only if not showing activity in headerRow
+            // (headerRow handles icon + indicator when showClosedActivity is true)
+            // Default icon - pixel art dog (white)
+            // Animates when any CLI session is processing
+            DogIcon(size: 26, color: .white, animate: isProcessing || hasPendingPermission)
+                .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: !showClosedActivity)
+                .padding(.leading, 8)
 
             Spacer()
 
-            // Menu toggle
+            // Settings button - directly opens preferences window
             Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    viewModel.toggleMenu()
-                    if viewModel.contentType == .menu {
-                        updateManager.markUpdateSeen()
-                    }
+                viewModel.notchClose()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    PreferencesWindowController.shared.show()
+                    updateManager.markUpdateSeen()
                 }
             } label: {
                 ZStack(alignment: .topTrailing) {
-                    Image(systemName: viewModel.contentType == .menu ? "xmark" : "line.3.horizontal")
-                        .font(.system(size: 11, weight: .medium))
+                    Image(systemName: "gear")
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.white.opacity(0.4))
                         .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
 
                     // Green dot for unseen update
-                    if updateManager.hasUnseenUpdate && viewModel.contentType != .menu {
+                    if updateManager.hasUnseenUpdate {
                         Circle()
                             .fill(TerminalColors.green)
-                            .frame(width: 6, height: 6)
-                            .offset(x: -2, y: 2)
+                            .frame(width: 5, height: 5)
+                            .offset(x: 1, y: -1)
                     }
                 }
             }
@@ -387,9 +425,13 @@ struct NotchView: View {
             // Delay hiding the notch until animation completes
             // Don't hide on non-notched devices - users need a visible target
             if viewModel.status == .closed && viewModel.hasPhysicalNotch {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [self] in
                     if !isAnyProcessing && !hasPendingPermission && !hasWaitingForInput && viewModel.status == .closed {
-                        isVisible = false
+                        // Check if "hide when no active session" is enabled
+                        let hideWhenNoActive = UserDefaults.standard.bool(forKey: "hideWhenNoActiveSession")
+                        if hideWhenNoActive {
+                            isVisible = false
+                        }
                     }
                 }
             }
@@ -419,10 +461,50 @@ struct NotchView: View {
         let currentIds = Set(sessions.map { $0.stableId })
         let newPendingIds = currentIds.subtracting(previousPendingIds)
 
-        if !newPendingIds.isEmpty &&
-           viewModel.status == .closed &&
-           !TerminalVisibilityDetector.isTerminalVisibleOnCurrentSpace() {
-            viewModel.notchOpen(reason: .notification)
+        for sessionId in newPendingIds {
+            guard let session = sessions.first(where: { $0.stableId == sessionId }) else { continue }
+            
+            // For Claude: play sound immediately (user approves in Notch)
+            // For Kimi/Codex: delay 0.5s - if still waiting, then play sound
+            // (This avoids sound for yolo mode or quick terminal approvals)
+            let delay: TimeInterval = session.supportsInNotchApproval ? 0 : 0.5
+            
+            if delay == 0 {
+                SoundManager.shared.play(.needApproval)
+            } else {
+                // Cancel any existing delay for this session
+                approvalSoundDelays[sessionId]?.cancel()
+                
+                // Schedule new delayed sound
+                // Capture sessionMonitor to check state when task runs
+                let monitor = sessionMonitor
+                approvalSoundDelays[sessionId] = Task { [sessionId] in
+                    try? await Task.sleep(for: .seconds(delay))
+                    
+                    // Check if still waiting for approval (not approved in terminal yet)
+                    let stillPending = monitor.pendingInstances.contains {
+                        $0.stableId == sessionId && $0.phase.isWaitingForApproval
+                    }
+                    if stillPending {
+                        await MainActor.run {
+                            SoundManager.shared.play(.needApproval)
+                        }
+                    }
+                }
+            }
+            
+            // Auto-open notch for new approvals
+            if viewModel.status == .closed &&
+               !TerminalVisibilityDetector.isTerminalVisibleOnCurrentSpace() {
+                viewModel.notchOpen(reason: .notification)
+            }
+        }
+
+        // Clean up sound delays for sessions no longer pending
+        let staleDelayIds = Set(approvalSoundDelays.keys).subtracting(currentIds)
+        for staleId in staleDelayIds {
+            approvalSoundDelays[staleId]?.cancel()
+            approvalSoundDelays.removeValue(forKey: staleId)
         }
 
         previousPendingIds = currentIds
@@ -451,7 +533,10 @@ struct NotchView: View {
             // Get the sessions that just entered waitingForInput
             let newlyWaitingSessions = waitingForInputSessions.filter { newWaitingIds.contains($0.stableId) }
 
-            // Play notification sound if the session is not actively focused
+            // Play complete sound for finished tasks
+            SoundManager.shared.play(.taskComplete)
+
+            // Also play system notification sound if configured
             if let soundName = AppSettings.notificationSound.soundName {
                 // Check if we should play sound (async check for tmux pane focus)
                 Task {

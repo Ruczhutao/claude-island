@@ -267,84 +267,84 @@ struct ToolStatusDisplay {
     static func running(for toolName: String, input: [String: String]) -> ToolStatusDisplay {
         switch toolName {
         case "Read":
-            return ToolStatusDisplay(text: "Reading...", isRunning: true)
+            return ToolStatusDisplay(text: "读取中...", isRunning: true)
         case "Edit":
-            return ToolStatusDisplay(text: "Editing...", isRunning: true)
+            return ToolStatusDisplay(text: "编辑中...", isRunning: true)
         case "Write":
-            return ToolStatusDisplay(text: "Writing...", isRunning: true)
+            return ToolStatusDisplay(text: "写入中...", isRunning: true)
         case "Bash":
             if let desc = input["description"], !desc.isEmpty {
                 return ToolStatusDisplay(text: desc, isRunning: true)
             }
-            return ToolStatusDisplay(text: "Running...", isRunning: true)
+            return ToolStatusDisplay(text: "运行中...", isRunning: true)
         case "Grep", "Glob":
             if let pattern = input["pattern"] {
-                return ToolStatusDisplay(text: "Searching: \(pattern)", isRunning: true)
+                return ToolStatusDisplay(text: "搜索：\(pattern)", isRunning: true)
             }
-            return ToolStatusDisplay(text: "Searching...", isRunning: true)
+            return ToolStatusDisplay(text: "搜索中...", isRunning: true)
         case "WebSearch":
             if let query = input["query"] {
                 return ToolStatusDisplay(text: "Searching: \(query)", isRunning: true)
             }
-            return ToolStatusDisplay(text: "Searching...", isRunning: true)
+            return ToolStatusDisplay(text: "搜索中...", isRunning: true)
         case "WebFetch":
-            return ToolStatusDisplay(text: "Fetching...", isRunning: true)
+            return ToolStatusDisplay(text: "获取中...", isRunning: true)
         case "Task":
             if let desc = input["description"], !desc.isEmpty {
                 return ToolStatusDisplay(text: desc, isRunning: true)
             }
-            return ToolStatusDisplay(text: "Running agent...", isRunning: true)
+            return ToolStatusDisplay(text: "运行代理中...", isRunning: true)
         case "TodoWrite":
-            return ToolStatusDisplay(text: "Updating todos...", isRunning: true)
+            return ToolStatusDisplay(text: "更新待办中...", isRunning: true)
         case "EnterPlanMode":
-            return ToolStatusDisplay(text: "Entering plan mode...", isRunning: true)
+            return ToolStatusDisplay(text: "进入计划模式...", isRunning: true)
         case "ExitPlanMode":
-            return ToolStatusDisplay(text: "Exiting plan mode...", isRunning: true)
+            return ToolStatusDisplay(text: "退出计划模式...", isRunning: true)
         default:
-            return ToolStatusDisplay(text: "Running...", isRunning: true)
+            return ToolStatusDisplay(text: "运行中...", isRunning: true)
         }
     }
 
     /// Get completed status text for a tool result
     static func completed(for toolName: String, result: ToolResultData?) -> ToolStatusDisplay {
         guard let result = result else {
-            return ToolStatusDisplay(text: "Completed", isRunning: false)
+            return ToolStatusDisplay(text: "已完成", isRunning: false)
         }
 
         switch result {
         case .read(let r):
             let lineText = r.totalLines > r.numLines ? "\(r.numLines)+ lines" : "\(r.numLines) lines"
-            return ToolStatusDisplay(text: "Read \(r.filename) (\(lineText))", isRunning: false)
+            return ToolStatusDisplay(text: "读取 \(r.filename) (\(lineText))", isRunning: false)
 
         case .edit(let r):
-            return ToolStatusDisplay(text: "Edited \(r.filename)", isRunning: false)
+            return ToolStatusDisplay(text: "编辑 \(r.filename)", isRunning: false)
 
         case .write(let r):
-            let action = r.type == .create ? "Created" : "Wrote"
+            let action = r.type == .create ? "已创建" : "已写入"
             return ToolStatusDisplay(text: "\(action) \(r.filename)", isRunning: false)
 
         case .bash(let r):
             if let bgId = r.backgroundTaskId {
-                return ToolStatusDisplay(text: "Running in background (\(bgId))", isRunning: false)
+                return ToolStatusDisplay(text: "后台运行中 (\(bgId))", isRunning: false)
             }
             if let interpretation = r.returnCodeInterpretation {
                 return ToolStatusDisplay(text: interpretation, isRunning: false)
             }
-            return ToolStatusDisplay(text: "Completed", isRunning: false)
+            return ToolStatusDisplay(text: "已完成", isRunning: false)
 
         case .grep(let r):
             let fileWord = r.numFiles == 1 ? "file" : "files"
-            return ToolStatusDisplay(text: "Found \(r.numFiles) \(fileWord)", isRunning: false)
+            return ToolStatusDisplay(text: "找到 \(r.numFiles) 个\(fileWord)", isRunning: false)
 
         case .glob(let r):
             let fileWord = r.numFiles == 1 ? "file" : "files"
             if r.numFiles == 0 {
-                return ToolStatusDisplay(text: "No files found", isRunning: false)
+                return ToolStatusDisplay(text: "未找到文件", isRunning: false)
             }
-            return ToolStatusDisplay(text: "Found \(r.numFiles) \(fileWord)", isRunning: false)
+            return ToolStatusDisplay(text: "找到 \(r.numFiles) 个\(fileWord)", isRunning: false)
 
         case .todoWrite:
-            return ToolStatusDisplay(text: "Updated todos", isRunning: false)
+            return ToolStatusDisplay(text: "已更新待办", isRunning: false)
 
         case .task(let r):
             return ToolStatusDisplay(text: r.status.capitalized, isRunning: false)
@@ -357,25 +357,25 @@ struct ToolStatusDisplay {
                 "\(Int(r.durationSeconds))s" :
                 "\(Int(r.durationSeconds * 1000))ms"
             let searchWord = r.results.count == 1 ? "search" : "searches"
-            return ToolStatusDisplay(text: "Did 1 \(searchWord) in \(time)", isRunning: false)
+            return ToolStatusDisplay(text: "\(time)内完成1次\(searchWord)", isRunning: false)
 
         case .askUserQuestion:
-            return ToolStatusDisplay(text: "Answered", isRunning: false)
+            return ToolStatusDisplay(text: "已回答", isRunning: false)
 
         case .bashOutput(let r):
-            return ToolStatusDisplay(text: "Status: \(r.status)", isRunning: false)
+            return ToolStatusDisplay(text: "状态：\(r.status)", isRunning: false)
 
         case .killShell:
-            return ToolStatusDisplay(text: "Terminated", isRunning: false)
+            return ToolStatusDisplay(text: "已终止", isRunning: false)
 
         case .exitPlanMode:
-            return ToolStatusDisplay(text: "Plan ready", isRunning: false)
+            return ToolStatusDisplay(text: "计划已就绪", isRunning: false)
 
         case .mcp:
-            return ToolStatusDisplay(text: "Completed", isRunning: false)
+            return ToolStatusDisplay(text: "已完成", isRunning: false)
 
         case .generic:
-            return ToolStatusDisplay(text: "Completed", isRunning: false)
+            return ToolStatusDisplay(text: "已完成", isRunning: false)
         }
     }
 }

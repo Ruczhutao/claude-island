@@ -135,7 +135,23 @@ extension HookEvent {
         }
 
         // Permission request creates waitingForApproval state
+        // For Claude: uses PermissionRequest event with expectsResponse=true
+        // For Kimi/Codex: uses PreToolUse with status=waiting_for_approval
         if expectsResponse, let tool = tool {
+            return .waitingForApproval(PermissionContext(
+                toolUseId: toolUseId ?? "",
+                toolName: tool,
+                toolInput: toolInput,
+                receivedAt: Date()
+            ))
+        }
+        
+        // Kimi and Codex use PreToolUse as their approval notification point
+        // They don't expect a response, but we still want to show waitingForApproval UI
+        if (provider == .kimi || provider == .codex) && 
+           event == "PreToolUse" && 
+           status == "waiting_for_approval",
+           let tool = tool {
             return .waitingForApproval(PermissionContext(
                 toolUseId: toolUseId ?? "",
                 toolName: tool,
@@ -164,11 +180,13 @@ extension HookEvent {
 
     /// Whether this is a tool-related event
     nonisolated var isToolEvent: Bool {
-        event == "PreToolUse" || event == "PostToolUse" || event == "PermissionRequest"
+        (provider == .claude && (event == "PreToolUse" || event == "PostToolUse" || event == "PermissionRequest")) ||
+        (provider == .kimi && (event == "PreToolUse" || event == "PostToolUse"))
     }
 
     /// Whether this event should trigger a file sync
     nonisolated var shouldSyncFile: Bool {
+        guard provider == .claude || provider == .kimi else { return false }
         switch event {
         case "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop":
             return true

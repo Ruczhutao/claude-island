@@ -15,7 +15,7 @@ actor YabaiController {
 
     // MARK: - Public API
 
-    /// Focus the terminal window for a given Claude PID (tmux only)
+    /// Focus the terminal window for a given Claude PID (tmux or regular terminal)
     func focusWindow(forClaudePid claudePid: Int) async -> Bool {
         guard await WindowFinder.shared.isYabaiAvailable() else {
             return false
@@ -24,7 +24,34 @@ actor YabaiController {
         let windows = await WindowFinder.shared.getAllWindows()
         let tree = ProcessTreeBuilder.shared.buildTree()
 
-        return await focusTmuxInstance(claudePid: claudePid, tree: tree, windows: windows)
+        // Try tmux first
+        if await focusTmuxInstance(claudePid: claudePid, tree: tree, windows: windows) {
+            return true
+        }
+
+        // Fallback: find and focus the terminal window directly
+        return await focusTerminalWindow(forClaudePid: claudePid, tree: tree, windows: windows)
+    }
+
+    /// Focus the terminal window directly (non-tmux)
+    private func focusTerminalWindow(forClaudePid claudePid: Int, tree: [Int: ProcessInfo], windows: [YabaiWindow]) async -> Bool {
+        // Walk up the process tree to find the terminal
+        var currentPid = claudePid
+        while currentPid > 1 {
+            guard let info = tree[currentPid] else { break }
+
+            // Check if this is a terminal process with a window
+            if isTerminalProcess(info.command) {
+                // Find the window for this terminal
+                if let window = windows.first(where: { $0.pid == currentPid }) {
+                    return await WindowFocuser.shared.focusWindow(id: window.id)
+                }
+            }
+
+            currentPid = info.ppid
+        }
+
+        return false
     }
 
     /// Focus the terminal window for a given working directory (tmux only, fallback)

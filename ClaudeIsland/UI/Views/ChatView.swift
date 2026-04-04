@@ -245,7 +245,7 @@ struct ChatView: View {
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: .white.opacity(0.4)))
                 .scaleEffect(0.8)
-            Text("Loading messages...")
+            Text("加载消息中...")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.4))
         }
@@ -259,7 +259,7 @@ struct ChatView: View {
             Image(systemName: "bubble.left.and.bubble.right")
                 .font(.system(size: 24))
                 .foregroundColor(.white.opacity(0.2))
-            Text("No messages yet")
+            Text("还没有消息")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.4))
         }
@@ -360,7 +360,7 @@ struct ChatView: View {
 
     private var inputBar: some View {
         HStack(spacing: 10) {
-            TextField(canSendMessages ? "Message Claude..." : "Open Claude Code in tmux to enable messaging", text: $inputText)
+            TextField(canSendMessages ? "给 Claude 发消息..." : "在 tmux 中打开 Claude Code 以启用消息功能", text: $inputText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .foregroundColor(canSendMessages ? .white : .white.opacity(0.4))
@@ -583,7 +583,7 @@ struct AssistantMessageView: View {
 // MARK: - Processing Indicator
 
 struct ProcessingIndicatorView: View {
-    private let baseTexts = ["Processing", "Working"]
+    private let baseTexts = ["处理中", "工作中"]
     private let color = Color(red: 0.85, green: 0.47, blue: 0.34) // Claude orange
     private let baseText: String
 
@@ -808,7 +808,7 @@ struct SubagentToolsList: View {
         VStack(alignment: .leading, spacing: 2) {
             // Show count of older hidden tools at top
             if hiddenCount > 0 {
-                Text("+\(hiddenCount) more tool uses")
+                Text("还有 \(hiddenCount) 个工具调用")
                     .font(.system(size: 10))
                     .foregroundColor(.white.opacity(0.4))
             }
@@ -838,7 +838,7 @@ struct SubagentToolRow: View {
     /// Get status text using the same logic as regular tools
     private var statusText: String {
         if tool.status == .interrupted {
-            return "Interrupted"
+            return "已中断"
         } else if tool.status == .running {
             return ToolStatusDisplay.running(for: tool.name, input: tool.input).text
         } else {
@@ -892,7 +892,7 @@ struct SubagentToolsSummary: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Subagent used \(tools.count) tools:")
+            Text("子代理使用了 \(tools.count) 个工具：")
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.white.opacity(0.5))
 
@@ -902,7 +902,7 @@ struct SubagentToolsSummary: View {
                         Text(name)
                             .font(.system(size: 10, design: .monospaced))
                             .foregroundColor(.white.opacity(0.4))
-                        Text("×\(count)")
+                        Text("×\(count) 次")
                             .font(.system(size: 9, design: .monospaced))
                             .foregroundColor(.white.opacity(0.3))
                     }
@@ -996,7 +996,7 @@ struct ChatInteractivePromptBar: View {
                 Text(MCPToolFormatter.formatToolName("AskUserQuestion"))
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
                     .foregroundColor(TerminalColors.amber)
-                Text("Claude Code needs your input")
+                Text("Claude Code 需要你的输入")
                     .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.5))
                     .lineLimit(1)

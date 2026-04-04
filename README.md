@@ -1,31 +1,44 @@
 <div align="center">
-  <img src="ClaudeIsland/Assets.xcassets/AppIcon.appiconset/icon_128x128.png" alt="Logo" width="100" height="100">
-  <h3 align="center">Claude Island</h3>
+  <h1 align="center">🐕 Agent Island</h1>
   <p align="center">
-    A macOS menu bar app that brings Dynamic Island-style notifications to Claude Code CLI sessions.
+    A macOS Notch Bar app for AI CLI agents — Dynamic Island-style monitoring for Claude, Codex, Kimi, and more.
     <br />
     <br />
-    <a href="https://github.com/farouqaldori/claude-island/releases/latest" target="_blank" rel="noopener noreferrer">
-      <img src="https://img.shields.io/github/v/release/farouqaldori/claude-island?style=rounded&color=white&labelColor=000000&label=release" alt="Release Version" />
-    </a>
-    <a href="#" target="_blank" rel="noopener noreferrer">
-      <img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/farouqaldori/claude-island/total?style=rounded&color=white&labelColor=000000">
+    <a href="https://github.com/Ruczhutao/claude-island/releases/latest" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/github/v/release/Ruczhutao/claude-island?style=rounded&color=white&labelColor=000000&label=release" alt="Release Version" />
     </a>
   </p>
 </div>
 
 ## Features
 
-- **Notch UI** — Animated overlay that expands from the MacBook notch
-- **Live Session Monitoring** — Track multiple Claude Code sessions in real-time
-- **Permission Approvals** — Approve or deny tool executions directly from the notch
-- **Chat History** — View full conversation history with markdown rendering
-- **Auto-Setup** — Hooks install automatically on first launch
+- **🐕 Pixel Dog Icon** — Cute corgi-style pixel dog in your notch, with ear-wiggle animation when agents are working
+- **🔴 Dynamic Notch UI** — Expands from the MacBook notch to show session status and controls
+- **🤖 Multi-Provider Support** — Monitor Claude Code, Codex CLI, and Kimi CLI simultaneously
+- **🔔 Smart Notifications** — Sound alerts for session start, tool approvals, and task completion
+- **✅ Permission Handling** — 
+  - Claude: Approve/deny directly in the notch
+  - Codex/Kimi: "Go to Terminal" button for quick access
+- **💬 Chat History** — View full conversation history with markdown rendering
+- **⚙️ Preferences Window** — Settings for display, sounds, and CLI hooks
+- **🔧 Auto-Setup** — Hooks install automatically for enabled CLIs
+
+## Supported AI CLIs
+
+| CLI | Status | Notch Approval |
+|-----|--------|----------------|
+| **Claude Code** | ✅ Supported | ✅ In-notch |
+| **Codex** | ✅ Supported | 🔘 Terminal |
+| **Kimi** | ✅ Supported | 🔘 Terminal |
+| **Qwen** | 🚧 Coming Soon | — |
+| **Gemini CLI** | 🚧 Coming Soon | — |
+| **Cursor Agent** | 🚧 Coming Soon | — |
+| **GitHub Copilot** | 🚧 Coming Soon | — |
 
 ## Requirements
 
 - macOS 15.6+
-- Claude Code CLI
+- At least one supported AI CLI installed
 
 ## Install
 
@@ -37,19 +50,35 @@ xcodebuild -scheme ClaudeIsland -configuration Release build
 
 ## How It Works
 
-Claude Island installs hooks into `~/.claude/hooks/` that communicate session state via a Unix socket. The app listens for events and displays them in the notch overlay.
+Agent Island installs hooks into each CLI's config directory:
+- `~/.claude/hooks/` for Claude Code
+- `~/.codex/hooks/` for Codex CLI
+- `~/.kimi/hooks/` for Kimi CLI
 
-When Claude needs permission to run a tool, the notch expands with approve/deny buttons—no need to switch to the terminal.
+Hooks communicate session state via a Unix socket (`/tmp/claude-island.sock`). The app listens for events and displays them in the notch overlay.
+
+## Sound Effects
+
+Three 8-bit retro sound effects included:
+- **Session Start** — New CLI session detected
+- **Need Approval** — Tool execution waiting for permission
+- **Task Complete** — AI finished responding
+
+Plus 13 macOS system sounds available. Custom MP3s can be added to `~/Library/Sounds/`.
 
 ## Analytics
 
-Claude Island uses Mixpanel to collect anonymous usage data:
+Agent Island uses Mixpanel to collect anonymous usage data:
 
 - **App Launched** — App version, build number, macOS version
-- **Session Started** — When a new Claude Code session is detected
+- **Session Started** — When a new CLI session is detected
 
 No personal data or conversation content is collected.
 
 ## License
 
 Apache 2.0
+
+---
+
+*Made with ❤️ by developers, for developers.*

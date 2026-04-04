@@ -24,11 +24,11 @@ struct ClaudeInstancesView: View {
 
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Text("No sessions")
+            Text("没有会话")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.4))
 
-            Text("Run claude in terminal")
+            Text("在终端中运行 claude 或 codex")
                 .font(.system(size: 11))
                 .foregroundColor(.white.opacity(0.25))
         }
@@ -88,18 +88,14 @@ struct ClaudeInstancesView: View {
     // MARK: - Actions
 
     private func focusSession(_ session: SessionState) {
-        guard session.isInTmux else { return }
-
         Task {
-            if let pid = session.pid {
-                _ = await YabaiController.shared.focusWindow(forClaudePid: pid)
-            } else {
-                _ = await YabaiController.shared.focusWindow(forWorkingDirectory: session.cwd)
-            }
+            // Use universal window focuser supporting terminals, VS Code, Cursor, Codex Desktop, etc.
+            _ = await UniversalWindowFocuser.shared.focusSession(session)
         }
     }
 
     private func openChat(_ session: SessionState) {
+        guard session.supportsChatHistory else { return }
         viewModel.showChat(for: session)
     }
 
@@ -131,8 +127,9 @@ struct InstanceRow: View {
     @State private var isYabaiAvailable = false
 
     private let claudeOrange = Color(red: 0.85, green: 0.47, blue: 0.34)
-    private let spinnerSymbols = ["·", "✢", "✳", "∗", "✻", "✽"]
-    private let spinnerTimer = Timer.publish(every: 0.15, on: .main, in: .common).autoconnect()
+    // Ellipsis animation: "  ", ".  ", ".. ", "..." cycling
+    private let ellipsisStates = ["", ".", "..", "..."]
+    private let ellipsisTimer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
 
     /// Whether we're showing the approval UI
     private var isWaitingForApproval: Bool {
@@ -145,10 +142,24 @@ struct InstanceRow: View {
         return toolName == "AskUserQuestion"
     }
 
+    private var supportsChatHistory: Bool {
+        session.supportsChatHistory
+    }
+
+    /// Handle single tap: jump to the client application
+    private func handleTap() {
+        // Single tap always jumps to the client application
+        onFocus()
+    }
+
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
             // State indicator on left
             stateIndicator
+                .frame(width: 24, alignment: .leading)
+            
+            // Provider icon
+            providerIcon
                 .frame(width: 14)
 
             // Text content
@@ -166,7 +177,7 @@ struct InstanceRow: View {
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
                             .foregroundColor(TerminalColors.amber.opacity(0.9))
                         if isInteractiveTool {
-                            Text("Needs your input")
+                            Text("需要你的输入")
                                 .font(.system(size: 11))
                                 .foregroundColor(.white.opacity(0.5))
                                 .lineLimit(1)
@@ -197,7 +208,7 @@ struct InstanceRow: View {
                     case "user":
                         // User message - prefix with "You:"
                         HStack(spacing: 4) {
-                            Text("You:")
+                            Text("你：")
                                 .font(.system(size: 11, weight: .medium))
                                 .foregroundColor(.white.opacity(0.5))
                             if let msg = session.lastMessage {
@@ -230,8 +241,10 @@ struct InstanceRow: View {
             if isWaitingForApproval && isInteractiveTool {
                 // Interactive tools like AskUserQuestion - show chat + terminal buttons
                 HStack(spacing: 8) {
-                    IconButton(icon: "bubble.left") {
-                        onChat()
+                    if supportsChatHistory {
+                        IconButton(icon: "bubble.left") {
+                            onChat()
+                        }
                     }
 
                     // Go to Terminal button (only if yabai available)
@@ -244,17 +257,35 @@ struct InstanceRow: View {
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             } else if isWaitingForApproval {
-                InlineApprovalButtons(
-                    onChat: onChat,
-                    onApprove: onApprove,
-                    onReject: onReject
-                )
-                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                // Different UI based on provider's approval capability
+                if session.supportsInNotchApproval {
+                    // Claude: Full in-notch approval
+                    InlineApprovalButtons(
+                        onChat: onChat,
+                        onApprove: onApprove,
+                        onReject: onReject
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                } else {
+                    // Kimi/Codex: Only show "Go to Terminal" button
+                    // These providers don't support allow via hook, only deny
+                    HStack(spacing: 8) {
+                        if supportsChatHistory {
+                            IconButton(icon: "bubble.left") {
+                                onChat()
+                            }
+                        }
+                        
+                        GoToTerminalButton(onTap: onFocus)
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
             } else {
                 HStack(spacing: 8) {
-                    // Chat icon - always show
-                    IconButton(icon: "bubble.left") {
-                        onChat()
+                    if supportsChatHistory {
+                        IconButton(icon: "bubble.left") {
+                            onChat()
+                        }
                     }
 
                     // Focus icon (only for tmux instances with yabai)
@@ -278,7 +309,13 @@ struct InstanceRow: View {
         .padding(.trailing, 14)
         .padding(.vertical, 10)
         .contentShape(Rectangle())
+        .onTapGesture {
+            // Single tap: smart jump to session
+            handleTap()
+        }
         .onTapGesture(count: 2) {
+            // Double tap: always open chat for supported sessions
+            guard supportsChatHistory else { return }
             onChat()
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isWaitingForApproval)
@@ -296,18 +333,23 @@ struct InstanceRow: View {
     private var stateIndicator: some View {
         switch session.phase {
         case .processing, .compacting:
-            Text(spinnerSymbols[spinnerPhase % spinnerSymbols.count])
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(claudeOrange)
-                .onReceive(spinnerTimer) { _ in
-                    spinnerPhase = (spinnerPhase + 1) % spinnerSymbols.count
+            // Ellipsis animation with provider color
+            Text(ellipsisStates[spinnerPhase % ellipsisStates.count])
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundColor(providerColor)
+                .frame(width: 20, height: 12, alignment: .leading)
+                .clipped()
+                .onReceive(ellipsisTimer) { _ in
+                    spinnerPhase = (spinnerPhase + 1) % ellipsisStates.count
                 }
         case .waitingForApproval:
-            Text(spinnerSymbols[spinnerPhase % spinnerSymbols.count])
-                .font(.system(size: 12, weight: .bold))
+            // Amber ellipsis for approval waiting
+            Text(ellipsisStates[spinnerPhase % ellipsisStates.count])
+                .font(.system(size: 14, weight: .medium, design: .monospaced))
                 .foregroundColor(TerminalColors.amber)
-                .onReceive(spinnerTimer) { _ in
-                    spinnerPhase = (spinnerPhase + 1) % spinnerSymbols.count
+                .frame(width: 24, alignment: .leading)
+                .onReceive(ellipsisTimer) { _ in
+                    spinnerPhase = (spinnerPhase + 1) % ellipsisStates.count
                 }
         case .waitingForInput:
             Circle()
@@ -317,6 +359,34 @@ struct InstanceRow: View {
             Circle()
                 .fill(Color.white.opacity(0.2))
                 .frame(width: 6, height: 6)
+        }
+    }
+    
+    /// Provider color: Orange for Claude, Blue for Codex
+    private var providerColor: Color {
+        switch session.provider {
+        case .claude:
+            return claudeOrange
+        case .codex:
+            return Color(red: 0.2, green: 0.6, blue: 1.0) // Codex blue
+        case .kimi:
+            return Color(red: 0.0, green: 0.55, blue: 1.0) // Kimi blue
+        }
+    }
+    
+    /// Provider icon view - provider-specific pixel art icons
+    @ViewBuilder
+    private var providerIcon: some View {
+        // Animate when session is processing
+        let isProcessing = session.phase == .processing || session.phase == .compacting
+        
+        switch session.provider {
+        case .claude:
+            ClaudeIcon(size: 16, color: providerColor, animate: isProcessing)
+        case .codex:
+            CodexIcon(size: 16, color: providerColor, animate: isProcessing)
+        case .kimi:
+            KimiIcon(size: 16, color: providerColor, animate: isProcessing)
         }
     }
 
@@ -346,7 +416,7 @@ struct InlineApprovalButtons: View {
             Button {
                 onReject()
             } label: {
-                Text("Deny")
+                Text("拒绝")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.white.opacity(0.6))
                     .padding(.horizontal, 10)
@@ -361,7 +431,7 @@ struct InlineApprovalButtons: View {
             Button {
                 onApprove()
             } label: {
-                Text("Allow")
+                Text("允许")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.black)
                     .padding(.horizontal, 10)
@@ -428,7 +498,7 @@ struct CompactTerminalButton: View {
             HStack(spacing: 2) {
                 Image(systemName: "terminal")
                     .font(.system(size: 8, weight: .medium))
-                Text("Go to Terminal")
+                Text("前往终端")
                     .font(.system(size: 10, weight: .medium))
             }
             .foregroundColor(isEnabled ? .white.opacity(0.9) : .white.opacity(0.3))
@@ -456,7 +526,7 @@ struct TerminalButton: View {
             HStack(spacing: 3) {
                 Image(systemName: "terminal")
                     .font(.system(size: 9, weight: .medium))
-                Text("Terminal")
+                Text("终端")
                     .font(.system(size: 11, weight: .medium))
             }
             .foregroundColor(isEnabled ? .black : .white.opacity(0.4))
@@ -466,5 +536,33 @@ struct TerminalButton: View {
             .clipShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Go to Terminal Button (for Kimi/Codex approval)
+
+struct GoToTerminalButton: View {
+    let onTap: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button {
+            onTap()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "bell.badge")
+                    .font(.system(size: 10, weight: .medium))
+                Text("前往终端审批")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundColor(.black)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(TerminalColors.amber.opacity(0.9))
+            .clipShape(Capsule())
+            .scaleEffect(isHovered ? 1.02 : 1.0)
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
     }
 }

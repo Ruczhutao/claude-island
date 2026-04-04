@@ -77,8 +77,13 @@ class NotchWindowController: NSWindowController {
                         notchWindow?.makeKey()
                     }
                 case .closed, .popping:
-                    // Ignore mouse events when closed so clicks pass through
-                    notchWindow?.ignoresMouseEvents = true
+                    // Delay ignoring mouse events to allow current click to complete
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak notchWindow, weak viewModel] in
+                        // Only set to true if still in closed/popping state
+                        if viewModel?.status == .closed || viewModel?.status == .popping {
+                            notchWindow?.ignoresMouseEvents = true
+                        }
+                    }
                 }
             }
             .store(in: &cancellables)

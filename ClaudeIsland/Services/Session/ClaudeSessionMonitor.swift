@@ -37,7 +37,7 @@ class ClaudeSessionMonitor: ObservableObject {
                     await SessionStore.shared.process(.hookReceived(event))
                 }
 
-                if event.sessionPhase == .processing {
+                if (event.provider == .claude || event.provider == .kimi), event.sessionPhase == .processing {
                     Task { @MainActor in
                         InterruptWatcherManager.shared.startWatching(
                             sessionId: event.sessionId,
@@ -46,7 +46,7 @@ class ClaudeSessionMonitor: ObservableObject {
                     }
                 }
 
-                if event.status == "ended" {
+                if (event.provider == .claude || event.provider == .kimi), event.status == "ended" {
                     Task { @MainActor in
                         InterruptWatcherManager.shared.stopWatching(sessionId: event.sessionId)
                     }

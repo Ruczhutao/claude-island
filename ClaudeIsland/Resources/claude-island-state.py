@@ -88,6 +88,7 @@ def main():
 
     # Build state object
     state = {
+        "provider": "claude",
         "session_id": session_id,
         "cwd": cwd,
         "event": event,

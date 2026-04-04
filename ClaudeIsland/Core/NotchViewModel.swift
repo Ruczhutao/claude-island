@@ -95,6 +95,16 @@ class NotchViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let events = EventMonitors.shared
     private var hoverTimer: DispatchWorkItem?
+    private var mouseLeaveTimer: DispatchWorkItem?
+    
+    // User settings
+    private var hideWhenNoActiveSession: Bool {
+        UserDefaults.standard.bool(forKey: "hideWhenNoActiveSession")
+    }
+    
+    private var autoCollapseOnMouseLeave: Bool {
+        UserDefaults.standard.object(forKey: "autoCollapseOnMouseLeave") as? Bool ?? true
+    }
 
     // MARK: - Initialization
 
@@ -160,15 +170,36 @@ class NotchViewModel: ObservableObject {
         // Cancel any pending hover timer
         hoverTimer?.cancel()
         hoverTimer = nil
+        
+        // Cancel any pending mouse leave timer
+        mouseLeaveTimer?.cancel()
+        mouseLeaveTimer = nil
 
         // Start hover timer to auto-expand after 1 second
         if isHovering && (status == .closed || status == .popping) {
+            // Check "smart suppress" - don't auto-expand if terminal is frontmost
+            let smartSuppress = UserDefaults.standard.bool(forKey: "smartSuppress")
+            if smartSuppress && TerminalVisibilityDetector.isTerminalFrontmost() {
+                // Terminal is frontmost, don't auto-expand
+                return
+            }
+            
             let workItem = DispatchWorkItem { [weak self] in
                 guard let self = self, self.isHovering else { return }
                 self.notchOpen(reason: .hover)
             }
             hoverTimer = workItem
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: workItem)
+        }
+        
+        // Auto-collapse when mouse leaves (if enabled)
+        if !isHovering && status == .opened && autoCollapseOnMouseLeave && !isInChatMode {
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self = self, !self.isHovering, self.status == .opened else { return }
+                self.notchClose()
+            }
+            mouseLeaveTimer = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: workItem)
         }
     }
 
@@ -254,6 +285,12 @@ class NotchViewModel: ObservableObject {
         }
         status = .closed
         contentType = .instances
+    }
+    
+    func notchCloseAfterDelay(_ delay: TimeInterval = 0.1) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.notchClose()
+        }
     }
 
     func notchPop() {

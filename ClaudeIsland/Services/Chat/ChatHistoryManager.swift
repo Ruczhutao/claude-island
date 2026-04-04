@@ -161,10 +161,10 @@ struct ToolCallItem: Equatable, Sendable {
             return ToolStatusDisplay.running(for: name, input: input)
         }
         if status == .waitingForApproval {
-            return ToolStatusDisplay(text: "Waiting for approval...", isRunning: true)
+            return ToolStatusDisplay(text: "等待批准...", isRunning: true)
         }
         if status == .interrupted {
-            return ToolStatusDisplay(text: "Interrupted", isRunning: false)
+            return ToolStatusDisplay(text: "已中断", isRunning: false)
         }
         return ToolStatusDisplay.completed(for: name, result: structuredResult)
     }
@@ -229,17 +229,17 @@ struct SubagentToolCall: Equatable, Identifiable, Sendable {
             if let path = input["file_path"] {
                 return URL(fileURLWithPath: path).lastPathComponent
             }
-            return "Reading..."
+            return "读取中..."
         case "Grep":
             if let pattern = input["pattern"] {
                 return "grep: \(pattern)"
             }
-            return "Searching..."
+            return "搜索中..."
         case "Glob":
             if let pattern = input["pattern"] {
                 return "glob: \(pattern)"
             }
-            return "Finding files..."
+            return "查找文件中..."
         case "Bash":
             if let desc = input["description"] {
                 return desc
@@ -248,12 +248,12 @@ struct SubagentToolCall: Equatable, Identifiable, Sendable {
                 let firstLine = cmd.components(separatedBy: "\n").first ?? cmd
                 return String(firstLine.prefix(40))
             }
-            return "Running command..."
+            return "运行命令中..."
         case "Edit":
             if let path = input["file_path"] {
                 return "Edit: \(URL(fileURLWithPath: path).lastPathComponent)"
             }
-            return "Editing..."
+            return "编辑中..."
         case "Write":
             if let path = input["file_path"] {
                 return "Write: \(URL(fileURLWithPath: path).lastPathComponent)"

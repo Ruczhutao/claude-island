@@ -67,29 +67,28 @@ class NotchPanel: NSPanel {
     // MARK: - Click-through for areas outside the panel content
 
     override func sendEvent(_ event: NSEvent) {
-        // For mouse events, check if we should pass through
+        // When window accepts mouse events (opened), let everything flow normally
+        if !ignoresMouseEvents {
+            super.sendEvent(event)
+            return
+        }
+        
+        // When window ignores mouse events (closed), pass through to apps behind
+        // Only handle mouse events for pass-through
         if event.type == .leftMouseDown || event.type == .leftMouseUp ||
            event.type == .rightMouseDown || event.type == .rightMouseUp {
-            // Get the location in window coordinates
-            let locationInWindow = event.locationInWindow
-
-            // Check if any view wants to handle this event
-            if let contentView = self.contentView,
-               contentView.hitTest(locationInWindow) == nil {
-                // No view wants this event - pass it through to windows behind
-                // by temporarily ignoring mouse events and re-posting
-                let screenLocation = convertPoint(toScreen: locationInWindow)
-                ignoresMouseEvents = true
-
-                // Re-post the event after a tiny delay
-                DispatchQueue.main.async { [weak self] in
-                    self?.repostMouseEvent(event, at: screenLocation)
-                }
-                return
+            // Pass event through to windows behind
+            if let screenLocation = windowToScreen(event.locationInWindow) {
+                repostMouseEvent(event, at: screenLocation)
             }
+            return
         }
 
         super.sendEvent(event)
+    }
+    
+    private func windowToScreen(_ point: NSPoint) -> NSPoint? {
+        return convertPoint(toScreen: point)
     }
 
     private func repostMouseEvent(_ event: NSEvent, at screenLocation: NSPoint) {
