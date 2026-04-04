@@ -7,6 +7,12 @@
     <a href="https://github.com/Ruczhutao/claude-island/releases/latest" target="_blank" rel="noopener noreferrer">
       <img src="https://img.shields.io/github/v/release/Ruczhutao/claude-island?style=rounded&color=white&labelColor=000000&label=release" alt="Release Version" />
     </a>
+    <a href="https://github.com/Ruczhutao/claude-island/stargazers" target="_blank" rel="noopener noreferrer">
+      <img src="https://img.shields.io/github/stars/Ruczhutao/claude-island?style=rounded&color=white&labelColor=000000&label=stars" alt="GitHub Stars" />
+    </a>
+  </p>
+  <p>
+    <a href="README.zh.md">🇨🇳 中文版</a>
   </p>
 </div>
 
