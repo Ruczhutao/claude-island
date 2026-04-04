@@ -72,13 +72,6 @@ Hooks 通过 Unix socket (`/tmp/claude-island.sock`) 与会话状态通信，应
 
 还支持 13 个 macOS 系统音效。可自定义 MP3 文件，放入 `~/Library/Sounds/` 即可。
 
-## 趣味彩蛋
-
-点击"检查更新"会发现：
-- 标题："朱涛忙着呢，等会儿的"
-- 按钮1："默默支持，给他点赞" → 跳转到 B 站视频
-- 按钮2："现在就去微信催他" → 打开微信
-
 ## 隐私说明
 
 Agent Island 使用 Mixpanel 收集匿名使用数据：
