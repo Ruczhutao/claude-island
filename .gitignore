@@ -42,6 +42,7 @@ releases/
 # Xcode backup
 *.xcodeproj.backup/
 # Local AI assistant docs
+AGENTS.md
 CLAUDE.md
 .qwen/
 .claude/
