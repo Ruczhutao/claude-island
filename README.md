@@ -18,15 +18,16 @@
 
 ## Features
 
-- **🐕 Pixel Dog Icon** — Cute corgi-style pixel dog in your notch, with ear-wiggle animation when agents are working
+- **🎨 Idle Icon System** — 6 pixel-art icons (Dog, Cat, Robot, Island, Ghost, Lighthouse) with status animations
 - **🔴 Dynamic Notch UI** — Expands from the MacBook notch to show session status and controls
-- **🤖 Multi-Provider Support** — Monitor Claude Code, Codex CLI, and Kimi CLI simultaneously
+- **🤖 Multi-Provider Support** — Monitor Claude Code, Codex CLI, Kimi CLI, and Cursor simultaneously
+- **📊 Status Indicators** — Visual state symbols: ! (processing), ? (waiting approval), ✓ (done)
 - **🔔 Smart Notifications** — Sound alerts for session start, tool approvals, and task completion
 - **✅ Permission Handling** — 
   - Claude: Approve/deny directly in the notch
-  - Codex/Kimi: "Go to Terminal" button for quick access
+  - Codex/Kimi/Cursor: "Go to Terminal" button for quick access
 - **💬 Chat History** — View full conversation history with markdown rendering
-- **⚙️ Preferences Window** — Settings for display, sounds, and CLI hooks
+- **⚙️ Preferences Window** — Settings for idle icon, sounds, and CLI hooks
 - **🔧 Auto-Setup** — Hooks install automatically for enabled CLIs
 
 ## Supported AI CLIs
@@ -36,9 +37,9 @@
 | **Claude Code** | ✅ Supported | ✅ In-notch |
 | **Codex** | ✅ Supported | 🔘 Terminal |
 | **Kimi** | ✅ Supported | 🔘 Terminal |
+| **Cursor** | ✅ Supported (3.0+) | 🔘 Terminal |
 | **Qwen** | 🚧 Coming Soon | — |
 | **Gemini CLI** | 🚧 Coming Soon | — |
-| **Cursor Agent** | 🚧 Coming Soon | — |
 | **GitHub Copilot** | 🚧 Coming Soon | — |
 
 ## Requirements
@@ -60,6 +61,7 @@ Agent Island installs hooks into each CLI's config directory:
 - `~/.claude/hooks/` for Claude Code
 - `~/.codex/hooks/` for Codex CLI
 - `~/.kimi/hooks/` for Kimi CLI
+- `~/.cursor/hooks.json` for Cursor (3.0+)
 
 Hooks communicate session state via a Unix socket (`/tmp/claude-island.sock`). The app listens for events and displays them in the notch overlay.
 
