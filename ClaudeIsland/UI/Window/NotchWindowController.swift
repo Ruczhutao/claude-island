@@ -91,6 +91,23 @@ class NotchWindowController: NSWindowController {
         // Start with ignoring mouse events (closed state)
         notchWindow.ignoresMouseEvents = true
 
+        // Monitor fullscreen state to hide/show notch automatically
+        FullscreenDetector.shared.$isAnyAppInFullscreen
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isFullscreen in
+                guard let self = self else { return }
+                let shouldHide = FullscreenDetector.shared.shouldHideNotch
+                
+                if shouldHide {
+                    // Hide window when entering fullscreen (if setting enabled)
+                    self.window?.orderOut(nil)
+                } else {
+                    // Show window when exiting fullscreen or setting disabled
+                    self.window?.orderFront(nil)
+                }
+            }
+            .store(in: &cancellables)
+
         // Perform boot animation after a brief delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.viewModel.performBootAnimation()

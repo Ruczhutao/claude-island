@@ -41,4 +41,28 @@ releases/
 
 # Xcode backup
 *.xcodeproj.backup/
+# Local AI assistant docs
 CLAUDE.md
+.qwen/
+.claude/
+
+# Session prompts & local dev docs
+NEXT_SESSION_PROMPT_*.md
+docs/HANDOVER.md
+docs/TESTING*.md
+docs/archive/
+
+# Temp files
+temp/
+
+# Audio
+*.mp3
+
+# AI tool temp files
+.gitignore_aionui_*
+
+# Local build scripts (不影响生产环境)
+scripts/build-local.sh      # 本地测试构建
+scripts/test-*.swift        # 测试脚本
+scripts/cursor-bridge.py    # 测试用 bridge 脚本
+# 注意：scripts/install-yabai.sh 是应用功能，需要提交

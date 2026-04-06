@@ -277,9 +277,15 @@ struct CLIHookRow: View {
 struct DisplaySettingsView: View {
     @ObservedObject private var screenSelector = ScreenSelector.shared
     @AppStorage("hideInFullscreen") private var hideInFullscreen = false
-    
+    @AppStorage("idleIconStyle") private var idleIconStyle: String = IdleIconStyle.dog.rawValue
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
+            // Idle Icon Selection
+            SettingsSection(title: "待机图标") {
+                IdleIconPicker(selectedStyle: $idleIconStyle)
+            }
+
             // Display Selection
             SettingsSection(title: "显示器") {
                 VStack(alignment: .leading, spacing: 12) {
@@ -646,22 +652,10 @@ extension View {
                     NSWorkspace.shared.open(url)
                 }
             }
-            Button("现在就去微信催他") {
-                // 尝试多种方式打开微信
-                // 方式1: 尝试 weixin:// URL scheme
-                if let weixinURL = URL(string: "weixin://"), 
-                   NSWorkspace.shared.urlForApplication(toOpen: weixinURL) != nil {
-                    NSWorkspace.shared.open(weixinURL)
-                } else if let wechatURL = URL(string: "wechat://"),
-                          NSWorkspace.shared.urlForApplication(toOpen: wechatURL) != nil {
-                    // 方式2: 尝试 wechat:// URL scheme
-                    NSWorkspace.shared.open(wechatURL)
-                } else {
-                    // 方式3: 通过 bundle ID 打开微信
-                    let wechatBundleID = "com.tencent.xinWeChat"
-                    if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: wechatBundleID) {
-                        NSWorkspace.shared.openApplication(at: appURL, configuration: NSWorkspace.OpenConfiguration())
-                    }
+            Button("去 B 站支持他") {
+                // 跳转到 B 站视频
+                if let url = URL(string: "https://www.bilibili.com/video/BV1Pe41157zg/?spm_id_from=333.337.search-card.all.click&vd_source=f7f066dc4b95e192aad482bfc4f861e5") {
+                    NSWorkspace.shared.open(url)
                 }
             }
         } message: {
@@ -709,6 +703,94 @@ struct LinkRow: View {
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(isHovered ? Color.white.opacity(0.08) : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - Idle Icon Picker
+
+struct IdleIconPicker: View {
+    @Binding var selectedStyle: String
+    @State private var previewAnimate = false
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 90, maximum: 110), spacing: 10)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            LazyVGrid(columns: columns, spacing: 10) {
+                ForEach(IdleIconStyle.allCases) { style in
+                    IdleIconCard(
+                        style: style,
+                        isSelected: selectedStyle == style.rawValue,
+                        animate: previewAnimate
+                    ) {
+                        selectedStyle = style.rawValue
+                    }
+                }
+            }
+
+            Text("选择刘海栏待机图标样式，处理任务时会播放对应动画")
+                .font(.system(size: 11))
+                .foregroundColor(.secondary)
+
+            Button {
+                previewAnimate.toggle()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: previewAnimate ? "pause.fill" : "play.fill")
+                        .font(.system(size: 10))
+                    Text(previewAnimate ? "停止预览" : "预览动画")
+                        .font(.system(size: 11))
+                }
+                .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
+struct IdleIconCard: View {
+    let style: IdleIconStyle
+    let isSelected: Bool
+    let animate: Bool
+    let onSelect: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: onSelect) {
+            VStack(spacing: 6) {
+                // Icon preview
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.black)
+                        .frame(width: 56, height: 36)
+
+                    style.iconView(size: 28, animate: animate, breathe: false)
+                }
+
+                // Label
+                Text(style.displayName)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(isSelected ? .white : .primary)
+            }
+            .padding(6)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(isSelected
+                          ? Color(red: 0.35, green: 0.55, blue: 0.95)
+                          : isHovered ? Color.white.opacity(0.08) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(isSelected
+                            ? Color(red: 0.35, green: 0.55, blue: 0.95)
+                            : Color.secondary.opacity(0.2), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)

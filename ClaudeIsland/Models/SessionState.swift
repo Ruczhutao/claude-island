@@ -194,12 +194,12 @@ struct SessionState: Equatable, Identifiable, Sendable {
     }
 
     var supportsChatHistory: Bool {
-        // Claude, Codex, and Kimi all support chat history and approval
-        provider == .claude || provider == .codex || provider == .kimi
+        // Claude, Codex, Kimi, and Cursor all support chat history
+        provider == .claude || provider == .codex || provider == .kimi || provider == .cursor
     }
     
     /// Whether this provider supports in-notch approval (Claude only)
-    /// Kimi and Codex only support blocking (deny), not allow - user must go to terminal
+    /// Kimi, Codex, and Cursor don't support 'allow' via hook - user must go to the app
     var supportsInNotchApproval: Bool {
         provider == .claude
     }

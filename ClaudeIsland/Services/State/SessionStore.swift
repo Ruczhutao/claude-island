@@ -42,7 +42,42 @@ actor SessionStore {
 
     // MARK: - Initialization
 
-    private init() {}
+    private init() {
+        // Load persisted sessions on initialization
+        Task {
+            await restorePersistedSessions()
+        }
+    }
+    
+    // MARK: - Persistence
+    
+    /// Restore sessions from persistence
+    private func restorePersistedSessions() async {
+        let persistedSessions = await SessionPersistence.shared.loadSessions()
+        for session in persistedSessions {
+            sessions[session.sessionId] = session
+            Self.logger.info("Restored session: \(session.sessionId.prefix(8), privacy: .public)")
+        }
+        publishState()
+        
+        // Trigger history reload for restored sessions (deferred to avoid blocking startup)
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            for session in persistedSessions {
+                if !session.transcriptPath.isNilOrEmpty {
+                    await loadHistoryFromFile(sessionId: session.sessionId, cwd: session.cwd)
+                }
+            }
+        }
+    }
+    
+    /// Persist current sessions to storage
+    private func persistSessions() {
+        Task {
+            let sessionsArray = Array(sessions.values)
+            await SessionPersistence.shared.saveSessions(sessionsArray)
+        }
+    }
 
     // MARK: - Event Processing
 
@@ -111,6 +146,7 @@ actor SessionStore {
         }
 
         publishState()
+        persistSessions()
     }
 
     // MARK: - Hook Event Processing
@@ -119,6 +155,10 @@ actor SessionStore {
         let sessionId = event.sessionId
         let isNewSession = sessions[sessionId] == nil
         var session = sessions[sessionId] ?? createSession(from: event)
+        
+        // Debug logging for all providers
+        let providerStr = event.providerRawValue ?? "nil"
+        Self.logger.info("📨 Event: provider=\(providerStr), event=\(event.event), session=\(sessionId.prefix(8)), isNewSession=\(isNewSession)")
 
         // Track new session in Mixpanel and play sound
         if isNewSession {
@@ -143,6 +183,8 @@ actor SessionStore {
         if event.status == "ended" {
             sessions.removeValue(forKey: sessionId)
             cancelPendingSync(sessionId: sessionId)
+            publishState()
+            persistSessions()
             return
         }
 
@@ -176,10 +218,23 @@ actor SessionStore {
     }
 
     private func createSession(from event: HookEvent) -> SessionState {
-        SessionState(
+        // Debug: log event details
+        let providerStr = event.providerRawValue ?? "nil"
+        Self.logger.info("🔧 createSession: provider=\(providerStr), cwd=\(event.cwd), projectName=\(event.projectName ?? "nil")")
+        
+        // For Cursor, use project_name from hook event if available (extracted from workspace_roots)
+        // Otherwise fallback to cwd's last path component
+        let projectName: String
+        if let hookProjectName = event.projectName, !hookProjectName.isEmpty {
+            projectName = hookProjectName
+        } else {
+            projectName = URL(fileURLWithPath: event.cwd).lastPathComponent
+        }
+        
+        return SessionState(
             sessionId: event.sessionId,
             cwd: event.cwd,
-            projectName: URL(fileURLWithPath: event.cwd).lastPathComponent,
+            projectName: projectName,
             provider: event.provider,
             transcriptPath: event.transcriptPath,
             model: event.model,
@@ -319,7 +374,8 @@ actor SessionStore {
             }
 
         case "SessionStart":
-            if summary == nil, let source = event.sessionStartSource {
+            // Only apply Codex-specific formatting for Codex provider
+            if event.provider == .codex, summary == nil, let source = event.sessionStartSource {
                 summary = "Codex (\(source))"
             }
 

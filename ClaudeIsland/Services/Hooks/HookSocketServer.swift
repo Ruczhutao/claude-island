@@ -32,6 +32,7 @@ struct HookEvent: Codable, Sendable {
     let lastAssistantMessage: String?
     let permissionMode: String?
     let sessionStartSource: String?
+    let projectName: String?  // For Cursor: project name from workspace_roots
 
     enum CodingKeys: String, CodingKey {
         case providerRawValue = "provider"
@@ -46,10 +47,11 @@ struct HookEvent: Codable, Sendable {
         case lastAssistantMessage = "last_assistant_message"
         case permissionMode = "permission_mode"
         case sessionStartSource = "session_start_source"
+        case projectName = "project_name"
     }
 
     /// Create a copy with updated toolUseId
-    init(providerRawValue: String?, sessionId: String, cwd: String, event: String, status: String, pid: Int?, tty: String?, tool: String?, toolInput: [String: AnyCodable]?, toolUseId: String?, notificationType: String?, message: String?, transcriptPath: String?, model: String?, prompt: String?, lastAssistantMessage: String?, permissionMode: String?, sessionStartSource: String?) {
+    init(providerRawValue: String?, sessionId: String, cwd: String, event: String, status: String, pid: Int?, tty: String?, tool: String?, toolInput: [String: AnyCodable]?, toolUseId: String?, notificationType: String?, message: String?, transcriptPath: String?, model: String?, prompt: String?, lastAssistantMessage: String?, permissionMode: String?, sessionStartSource: String?, projectName: String? = nil) {
         self.providerRawValue = providerRawValue
         self.sessionId = sessionId
         self.cwd = cwd
@@ -68,6 +70,7 @@ struct HookEvent: Codable, Sendable {
         self.lastAssistantMessage = lastAssistantMessage
         self.permissionMode = permissionMode
         self.sessionStartSource = sessionStartSource
+        self.projectName = projectName
     }
 
     nonisolated var provider: SessionProvider {
@@ -438,13 +441,18 @@ class HookSocketServer {
 
         let data = allData
 
+        // Debug: print raw data
+        if let rawJson = String(data: data, encoding: .utf8) {
+            logger.debug("Raw event: \(rawJson, privacy: .public)")
+        }
+        
         guard let event = try? JSONDecoder().decode(HookEvent.self, from: data) else {
             logger.warning("Failed to parse event: \(String(data: data, encoding: .utf8) ?? "?", privacy: .public)")
             close(clientSocket)
             return
         }
 
-        logger.debug("Received: \(event.event, privacy: .public) for \(event.sessionId.prefix(8), privacy: .public)")
+        logger.info("Received: \(event.event, privacy: .public) provider=\(event.providerRawValue ?? "nil") for \(event.sessionId.prefix(8), privacy: .public)")
 
         if event.event == "PreToolUse" {
             cacheToolUseId(event: event)
@@ -487,7 +495,8 @@ class HookSocketServer {
                 prompt: event.prompt,
                 lastAssistantMessage: event.lastAssistantMessage,
                 permissionMode: event.permissionMode,
-                sessionStartSource: event.sessionStartSource
+                sessionStartSource: event.sessionStartSource,
+                projectName: event.projectName
             )
 
             let pending = PendingPermission(

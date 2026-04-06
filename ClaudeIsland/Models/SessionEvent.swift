@@ -137,6 +137,7 @@ extension HookEvent {
         // Permission request creates waitingForApproval state
         // For Claude: uses PermissionRequest event with expectsResponse=true
         // For Kimi/Codex: uses PreToolUse with status=waiting_for_approval
+        // For Cursor: uses beforeShellExecution (user must go to Cursor to approve)
         if expectsResponse, let tool = tool {
             return .waitingForApproval(PermissionContext(
                 toolUseId: toolUseId ?? "",
@@ -151,6 +152,18 @@ extension HookEvent {
         if (provider == .kimi || provider == .codex) && 
            event == "PreToolUse" && 
            status == "waiting_for_approval",
+           let tool = tool {
+            return .waitingForApproval(PermissionContext(
+                toolUseId: toolUseId ?? "",
+                toolName: tool,
+                toolInput: toolInput,
+                receivedAt: Date()
+            ))
+        }
+        
+        // Cursor uses beforeShellExecution as approval notification
+        // User must go to Cursor IDE to approve
+        if provider == .cursor && event == "beforeShellExecution" && status == "waiting_for_approval",
            let tool = tool {
             return .waitingForApproval(PermissionContext(
                 toolUseId: toolUseId ?? "",
@@ -181,15 +194,19 @@ extension HookEvent {
     /// Whether this is a tool-related event
     nonisolated var isToolEvent: Bool {
         (provider == .claude && (event == "PreToolUse" || event == "PostToolUse" || event == "PermissionRequest")) ||
-        (provider == .kimi && (event == "PreToolUse" || event == "PostToolUse"))
+        (provider == .kimi && (event == "PreToolUse" || event == "PostToolUse")) ||
+        (provider == .cursor && (event == "beforeShellExecution" || event == "afterShellExecution"))
     }
 
     /// Whether this event should trigger a file sync
     nonisolated var shouldSyncFile: Bool {
-        guard provider == .claude || provider == .kimi else { return false }
+        guard provider == .claude || provider == .kimi || provider == .cursor else { return false }
         switch event {
         case "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop":
             return true
+        case "beforeSubmitPrompt", "afterAgentResponse", "beforeShellExecution", "afterShellExecution":
+            // Cursor hooks that should trigger file sync
+            return provider == .cursor
         default:
             return false
         }

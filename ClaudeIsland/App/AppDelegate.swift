@@ -56,7 +56,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             "macos_version": osVersion
         ])
 
-        fetchAndRegisterClaudeVersion()
+        // Load Claude version in background to avoid blocking main thread
+        Task {
+            await fetchAndRegisterClaudeVersion()
+        }
 
         Mixpanel.mainInstance().people.set(properties: [
             "app_version": version,
@@ -125,7 +128,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return newId
     }
 
-    private func fetchAndRegisterClaudeVersion() {
+    private func fetchAndRegisterClaudeVersion() async {
         let claudeProjectsDir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/projects")
 

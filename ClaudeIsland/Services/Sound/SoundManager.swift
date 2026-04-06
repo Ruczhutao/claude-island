@@ -129,24 +129,40 @@ class SoundManager: ObservableObject {
             Bundle.main.url(forResource: filename, withExtension: "mp3", subdirectory: "Sounds")
         ]
         
-        for path in paths {
-            if let url = path, FileManager.default.fileExists(atPath: url.path) {
-                return url
+        for (index, path) in paths.enumerated() {
+            if let url = path {
+                let exists = FileManager.default.fileExists(atPath: url.path)
+                print("🔊 Path \(index): \(url.path) - \(exists ? "EXISTS" : "not found")")
+                if exists {
+                    return url
+                }
             }
         }
         
+        print("🔊 MP3 not found: \(filename).mp3")
         return nil
     }
 
     /// Play sound for an event
     func play(_ event: SoundEvent) {
-        guard isEnabled else { return }
+        print("🔊 SoundManager.play(\(event.rawValue)) called")
+        guard isEnabled else {
+            print("🔊 Sound disabled")
+            return
+        }
         
         let config = configs[event] ?? .default
-        guard config.isEnabled else { return }
+        guard config.isEnabled else {
+            print("🔊 Sound event disabled: \(event.rawValue)")
+            return
+        }
         
-        guard let sound = AvailableSound(rawValue: config.selectedSound) else { return }
+        guard let sound = AvailableSound(rawValue: config.selectedSound) else {
+            print("🔊 Invalid sound: \(config.selectedSound)")
+            return
+        }
         
+        print("🔊 Playing sound: \(sound.rawValue)")
         playSound(sound)
     }
     

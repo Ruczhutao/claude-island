@@ -5,6 +5,7 @@
 //  Auto-installs supported CLI hooks on app launch.
 //
 
+import AppKit
 import Foundation
 
 enum CLIProvider: String, CaseIterable, Identifiable {
@@ -12,11 +13,11 @@ enum CLIProvider: String, CaseIterable, Identifiable {
     case claude = "Claude Code"
     case codex = "Codex"
     case kimi = "Kimi"
+    case cursor = "Cursor"
     
     // 即将支持
     case qwen = "Qwen"
     case gemini = "Gemini CLI"
-    case cursor = "Cursor Agent"
     case copilot = "GitHub Copilot"
     
     var id: String { rawValue }
@@ -35,9 +36,9 @@ enum CLIProvider: String, CaseIterable, Identifiable {
     
     var isSupported: Bool {
         switch self {
-        case .claude, .codex, .kimi:
+        case .claude, .codex, .kimi, .cursor:
             return true
-        case .qwen, .gemini, .cursor, .copilot:
+        case .qwen, .gemini, .copilot:
             return false
         }
     }
@@ -54,6 +55,7 @@ struct HookInstaller {
         installClaudeHooks()
         installCodexHooks()
         installKimiHooks()
+        installCursorHooks()
     }
 
     static func isInstalled() -> Bool {
@@ -74,6 +76,7 @@ struct HookInstaller {
         case .claude: return isClaudeInstalled()
         case .codex: return isCodexInstalled()
         case .kimi: return isKimiInstalled()
+        case .cursor: return isCursorInstalled()
         default: return false
         }
     }
@@ -84,6 +87,7 @@ struct HookInstaller {
         case .claude: installClaudeHooks()
         case .codex: installCodexHooks()
         case .kimi: installKimiHooks()
+        case .cursor: installCursorHooks()
         default: break
         }
     }
@@ -94,6 +98,7 @@ struct HookInstaller {
         case .claude: uninstallClaudeHooks()
         case .codex: uninstallCodexHooks()
         case .kimi: uninstallKimiHooks()
+        case .cursor: uninstallCursorHooks()
         default: break
         }
     }
@@ -304,6 +309,77 @@ struct HookInstaller {
         )
     }
 
+    // MARK: - Cursor
+    
+    // Cursor 3.0+ supports full hooks mechanism similar to Claude/Codex
+    // Hooks are configured in ~/.cursor/hooks.json
+    
+    private static let cursorEnabledKey = "com.claudeisland.cursor-enabled"
+    
+    private static func installCursorHooks() {
+        let cursorDir = fileManager.homeDirectoryForCurrentUser.appendingPathComponent(".cursor")
+        let hooksDir = cursorDir.appendingPathComponent("hooks")
+        let scriptURL = hooksDir.appendingPathComponent("cursor-island-state.py")
+        let hooksURL = cursorDir.appendingPathComponent("hooks.json")
+
+        installBundledScript(
+            resourceName: "cursor-island-state",
+            destination: scriptURL
+        )
+
+        let python = detectPython()
+        let command = "\(python) ~/.cursor/hooks/cursor-island-state.py"
+        
+        // Cursor uses a simpler hooks format than Claude/Codex
+        // Format: {"hooks": {"eventName": [{"command": "..."}]}}
+        // Note: No nested "hooks" array, no "type" field, no "timeout" field
+        let hookEvents: [(String, [[String: Any]])] = [
+            ("beforeSubmitPrompt", [["command": command]]),
+            ("afterAgentResponse", [["command": command]]),
+            ("beforeShellExecution", [["command": command]]),
+            ("afterShellExecution", [["command": command]]),
+            ("stop", [["command": command]]),
+        ]
+
+        updateCursorHooksFile(
+            at: hooksURL,
+            commandIdentifier: "cursor-island-state.py",
+            hookEvents: hookEvents
+        )
+        
+        // Mark as enabled in UserDefaults for app-level tracking
+        UserDefaults.standard.set(true, forKey: cursorEnabledKey)
+    }
+    
+    private static func isCursorInstalled() -> Bool {
+        // Check if Cursor app is installed
+        let cursorBundleId = "com.todesktop.230313mzl4w4u92"
+        let cursorInstalled = NSWorkspace.shared.urlForApplication(withBundleIdentifier: cursorBundleId) != nil
+        
+        // Check if our hook script is installed (using Cursor's simple format)
+        let hooksURL = fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent(".cursor/hooks.json")
+        let hooksInstalled = cursorHooksFile(at: hooksURL).contains { command in
+            command.contains("cursor-island-state.py")
+        }
+        
+        return cursorInstalled && hooksInstalled
+    }
+    
+    private static func uninstallCursorHooks() {
+        UserDefaults.standard.set(false, forKey: cursorEnabledKey)
+        
+        let cursorDir = fileManager.homeDirectoryForCurrentUser.appendingPathComponent(".cursor")
+        let scriptURL = cursorDir.appendingPathComponent("hooks/cursor-island-state.py")
+        let hooksURL = cursorDir.appendingPathComponent("hooks.json")
+
+        try? fileManager.removeItem(at: scriptURL)
+        removeHookCommand(
+            at: hooksURL,
+            commandIdentifier: "cursor-island-state.py"
+        )
+    }
+
     // MARK: - Shared Helpers
 
     private static func installBundledScript(resourceName: String, destination: URL) {
@@ -381,6 +457,43 @@ struct HookInstaller {
         writeJSON(json, to: fileURL)
     }
 
+    // MARK: - Cursor Helpers
+    
+    /// Cursor uses a simpler hooks format than Claude/Codex
+    /// Format: {"hooks": {"eventName": [{"command": "..."}]}, "version": 1}
+    /// Note: No nested "hooks" array, no "type" field, no "timeout" field
+    private static func updateCursorHooksFile(at fileURL: URL, commandIdentifier: String, hookEvents: [(String, [[String: Any]])]) {
+        var json: [String: Any] = [:]
+        if let data = try? Data(contentsOf: fileURL),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            json = existing
+        }
+
+        var hooks = json["hooks"] as? [String: Any] ?? [:]
+
+        for (event, config) in hookEvents {
+            // Cursor format: direct array of command objects
+            if var existingEvent = hooks[event] as? [[String: Any]] {
+                let hasOurHook = existingEvent.contains { entry in
+                    if let cmd = entry["command"] as? String {
+                        return cmd.contains(commandIdentifier)
+                    }
+                    return false
+                }
+                if !hasOurHook {
+                    existingEvent.append(contentsOf: config)
+                    hooks[event] = existingEvent
+                }
+            } else {
+                hooks[event] = config
+            }
+        }
+
+        json["hooks"] = hooks
+        json["version"] = 1  // Cursor expects version field
+        writeJSON(json, to: fileURL)
+    }
+
     private static func hooksFile(at fileURL: URL) -> [String] {
         guard let data = try? Data(contentsOf: fileURL),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -398,6 +511,27 @@ struct HookInstaller {
                             commands.append(command)
                         }
                     }
+                }
+            }
+        }
+        return commands
+    }
+    
+    /// Cursor uses a simpler format: {"hooks": {"event": [{"command": "..."}]}}
+    private static func cursorHooksFile(at fileURL: URL) -> [String] {
+        guard let data = try? Data(contentsOf: fileURL),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let hooks = json["hooks"] as? [String: Any] else {
+            return []
+        }
+
+        var commands: [String] = []
+        for (_, value) in hooks {
+            guard let entries = value as? [[String: Any]] else { continue }
+            for entry in entries {
+                // Cursor format: direct "command" field, no nested "hooks" array
+                if let command = entry["command"] as? String {
+                    commands.append(command)
                 }
             }
         }

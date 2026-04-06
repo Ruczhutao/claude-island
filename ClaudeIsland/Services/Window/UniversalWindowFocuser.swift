@@ -7,18 +7,23 @@
 
 import AppKit
 import Foundation
+import os.log
 
 /// Supported client types for session focusing
 enum ClientType {
     case terminal    // iTerm2, Terminal.app, Ghostty, etc.
     case vscode      // VS Code, Cursor, Windsurf, etc.
     case codexDesktop // Codex Desktop app
+    case cursor      // Cursor IDE
     case unknown
 }
 
 /// Universal window focuser supporting multiple client types
 actor UniversalWindowFocuser {
     static let shared = UniversalWindowFocuser()
+    
+    /// Logger for window focusing
+    private let logger = Logger(subsystem: "com.claudeisland", category: "WindowFocus")
 
     private init() {}
 
@@ -47,6 +52,8 @@ actor UniversalWindowFocuser {
             return await focusVSCode(cwd: session.cwd)
         case .codexDesktop:
             return await focusCodexDesktop(cwd: session.cwd)
+        case .cursor:
+            return await focusCursorEnhanced(cwd: session.cwd)
         case .terminal:
             return await focusTerminal()
         case .unknown:
@@ -74,9 +81,14 @@ actor UniversalWindowFocuser {
         let model = session.model?.lowercased() ?? ""
         let title = session.displayTitle.lowercased()
 
-        // VS Code / Cursor detection
-        if model.contains("copilot") || title.contains("vscode") || title.contains("cursor") {
+        // VS Code / Cursor detection by title/model
+        if model.contains("copilot") || title.contains("vscode") {
             return .vscode
+        }
+        
+        // Cursor IDE detection by title or provider
+        if title.contains("cursor") || session.provider == .cursor {
+            return .cursor
         }
 
         // Terminal detection (default for most CLI sessions)
@@ -92,10 +104,9 @@ actor UniversalWindowFocuser {
 
     // MARK: - App-Specific Focusing
 
-    /// Focus VS Code / Cursor window
+    /// Focus VS Code window
     private func focusVSCode(cwd: String) async -> Bool {
-        // Try Cursor first (more specific), then VS Code
-        let apps = ["Cursor", "Visual Studio Code", "Code"]
+        let apps = ["Visual Studio Code", "Code"]
 
         for appName in apps {
             if await activateApplication(named: appName) {
@@ -105,6 +116,95 @@ actor UniversalWindowFocuser {
         }
 
         return false
+    }
+    
+    /// Focus Cursor window
+    private func focusCursor(cwd: String) async -> Bool {
+        logger.info("Focusing Cursor window for cwd: \(cwd, privacy: .public)")
+        
+        // Strategy 1: Try to find and activate a running Cursor window matching the cwd
+        if let cursorWindow = await findCursorWindow(forCwd: cwd) {
+            logger.info("Found matching Cursor window, activating...")
+            cursorWindow.activate(options: [.activateIgnoringOtherApps])
+            return true
+        }
+        
+        // Strategy 2: Try to activate Cursor by bundle ID first (more reliable)
+        let cursorBundleId = "com.todesktop.230313mzl4w4u92"
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: cursorBundleId) {
+            logger.info("Opening Cursor via bundle ID...")
+            NSWorkspace.shared.open(url)
+            return true
+        }
+        
+        // Strategy 3: Fallback to app name
+        logger.info("Trying to activate Cursor by name...")
+        if await activateApplication(named: "Cursor") {
+            return true
+        }
+
+        logger.warning("Failed to focus Cursor window")
+        return false
+    }
+    
+    /// Find a Cursor window matching the given working directory
+    private func findCursorWindow(forCwd cwd: String) async -> NSRunningApplication? {
+        let projectName = URL(fileURLWithPath: cwd).lastPathComponent.lowercased()
+        let runningApps = NSWorkspace.shared.runningApplications
+        
+        // Find Cursor app
+        guard let cursorApp = runningApps.first(where: { app in
+            guard let bundleId = app.bundleIdentifier else { return false }
+            return bundleId == "com.todesktop.230313mzl4w4u92"
+        }) else {
+            logger.debug("Cursor app not running")
+            return nil
+        }
+        
+        // If we have yabai, try to find a window with matching title
+        if await WindowFinder.shared.isYabaiAvailable() {
+            let windows = await WindowFinder.shared.getAllWindows()
+            let pid = Int(cursorApp.processIdentifier)
+            let cursorWindows = windows.filter { $0.pid == pid }
+            
+            // Try to find window with project name in title
+            for window in cursorWindows {
+                let titleLower = window.title.lowercased()
+                if titleLower.contains(projectName) {
+                    logger.info("Found Cursor window with matching project: \(window.title, privacy: .public)")
+                    // Focus the specific window using yabai
+                    if await focusWindowWithYabai(windowId: window.id) {
+                        return cursorApp
+                    }
+                }
+            }
+            
+            // If no match, use the first visible window
+            if let firstWindow = cursorWindows.first(where: { $0.isVisible }) {
+                logger.info("Using first visible Cursor window: \(firstWindow.title, privacy: .public)")
+                _ = await focusWindowWithYabai(windowId: firstWindow.id)
+                return cursorApp
+            }
+        }
+        
+        return cursorApp
+    }
+    
+    /// Focus a specific window using yabai
+    private func focusWindowWithYabai(windowId: Int) async -> Bool {
+        guard let yabaiPath = await WindowFinder.shared.getYabaiPath() else { return false }
+        
+        do {
+            _ = try await ProcessExecutor.shared.run(
+                yabaiPath,
+                arguments: ["-m", "window", "--focus", String(windowId)]
+            )
+            logger.info("Focused window \(windowId) via yabai")
+            return true
+        } catch {
+            logger.error("Failed to focus window via yabai: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
     }
 
     /// Focus Codex Desktop

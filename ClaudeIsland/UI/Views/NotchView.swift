@@ -20,6 +20,7 @@ struct NotchView: View {
     @StateObject private var sessionMonitor = ClaudeSessionMonitor()
     @StateObject private var activityCoordinator = NotchActivityCoordinator.shared
     @ObservedObject private var updateManager = UpdateManager.shared
+    @AppStorage("idleIconStyle") private var idleIconStyle: String = IdleIconStyle.dog.rawValue
     @State private var previousPendingIds: Set<String> = []
     @State private var previousWaitingForInputIds: Set<String> = []
     @State private var waitingForInputTimestamps: [String: Date] = [:]  // sessionId -> when it entered waitingForInput
@@ -38,6 +39,11 @@ struct NotchView: View {
     /// Whether any Claude session has a pending permission request
     private var hasPendingPermission: Bool {
         sessionMonitor.instances.contains { $0.phase.isWaitingForApproval }
+    }
+
+    /// Current idle icon style
+    private var idleStyle: IdleIconStyle {
+        IdleIconStyle(rawValue: idleIconStyle) ?? .dog
     }
 
     /// Whether any Claude session is waiting for user input (done/ready state) within the display window
@@ -215,6 +221,33 @@ struct NotchView: View {
         isProcessing || hasPendingPermission || hasWaitingForInput
     }
     
+    /// Current state with priority: waiting > running > sleeping > idle
+    private var currentState: (status: DogStatus, animate: Bool, breathe: Bool, pulse: Bool) {
+        // Priority 1: Waiting for approval
+        if hasPendingPermission {
+            return (.waiting, false, false, true)
+        }
+        // Priority 2: Processing
+        else if isProcessing {
+            return (.running, true, false, false)
+        }
+        // Priority 3: Done/ready
+        else if hasWaitingForInput {
+            let shouldBreathe = viewModel.status != .opened
+            return (.sleeping, false, shouldBreathe, false)
+        }
+        // Priority 4: Idle
+        else {
+            return (.idle, false, false, false)
+        }
+    }
+    
+    /// Convenience accessors
+    private var dogStatus: DogStatus { currentState.status }
+    private var dogAnimate: Bool { currentState.animate }
+    private var dogBreathe: Bool { currentState.breathe }
+    private var dogPulse: Bool { currentState.pulse }
+    
     /// Get the dominant provider for current activity (for icon color)
     private var dominantProvider: SessionProvider {
         // Priority: processing > pending > waiting for input
@@ -239,6 +272,8 @@ struct NotchView: View {
             return Color(red: 0.2, green: 0.6, blue: 1.0) // Blue
         case .kimi:
             return Color(red: 0.0, green: 0.55, blue: 1.0) // Kimi blue
+        case .cursor:
+            return Color(red: 0.95, green: 0.95, blue: 0.95) // White/Silver
         }
     }
     
@@ -251,6 +286,8 @@ struct NotchView: View {
             return "X"
         case .kimi:
             return "K"
+        case .cursor:
+            return "⦿"
         }
     }
     
@@ -264,6 +301,8 @@ struct NotchView: View {
             CodexIcon(size: size, color: activityColor, animate: animate)
         case .kimi:
             KimiIcon(size: size, color: activityColor, animate: animate)
+        case .cursor:
+            CursorIcon(size: size, color: activityColor, animate: animate)
         }
     }
 
@@ -295,21 +334,21 @@ struct NotchView: View {
     @ViewBuilder
     private var headerRow: some View {
         HStack(spacing: 0) {
-            // Left side - pixel dog icon always visible
-            HStack(spacing: 4) {
-                // Pixel dog icon - always shown
-                // - animate: ear wiggle when any CLI is processing
-                // - breathe: opacity pulse when no activity
-                DogIcon(size: 26, color: .white, animate: isProcessing, breathe: !showClosedActivity)
+            // Left side - Main icon + simplified status indicator
+            // Status icon: Idle=hidden, Running=!, Waiting=?, Done=✓
+            HStack(alignment: .center, spacing: dogStatus == .idle ? 0 : 4) {
+                // Main icon (Dog/Cat/Robot/etc) - animation shows state
+                idleStyle.iconView(size: 32, animate: dogAnimate, breathe: dogBreathe, pulse: dogPulse)
                     .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: showClosedActivity)
-
-                // Permission indicator only when pending (amber)
-                if hasPendingPermission {
-                    PermissionIndicatorIcon(size: 14, color: Color(red: 0.85, green: 0.47, blue: 0.34))
-                        .matchedGeometryEffect(id: "status-indicator", in: activityNamespace, isSource: showClosedActivity)
+                
+                // Status symbol - only visible when not idle
+                if dogStatus != .idle {
+                    StatusPixelIcon(status: dogStatus, size: 18)
+                        .matchedGeometryEffect(id: "status", in: activityNamespace, isSource: showClosedActivity)
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
-            .frame(width: viewModel.status == .opened ? nil : sideWidth + (hasPendingPermission ? 18 : 0))
+            .frame(width: viewModel.status == .opened ? nil : (dogStatus == .idle ? 32 : 54), alignment: .leading)
             .padding(.leading, viewModel.status == .opened ? 8 : 0)
 
             // Center content
@@ -343,13 +382,18 @@ struct NotchView: View {
     @ViewBuilder
     private var openedHeaderContent: some View {
         HStack(spacing: 12) {
-            // Show static icon only if not showing activity in headerRow
-            // (headerRow handles icon + indicator when showClosedActivity is true)
-            // Default icon - pixel art dog (white)
-            // Animates when any CLI session is processing
-            DogIcon(size: 26, color: .white, animate: isProcessing || hasPendingPermission)
-                .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: !showClosedActivity)
-                .padding(.leading, 8)
+            // Main icon + status symbol (if not idle)
+            HStack(alignment: .center, spacing: dogStatus == .idle ? 0 : 4) {
+                idleStyle.iconView(size: 32, animate: dogAnimate, breathe: dogBreathe, pulse: dogPulse)
+                    .matchedGeometryEffect(id: "crab", in: activityNamespace, isSource: !showClosedActivity)
+                
+                if dogStatus != .idle {
+                    StatusPixelIcon(status: dogStatus, size: 18)
+                        .matchedGeometryEffect(id: "status", in: activityNamespace, isSource: !showClosedActivity)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .padding(.leading, 8)
 
             Spacer()
 

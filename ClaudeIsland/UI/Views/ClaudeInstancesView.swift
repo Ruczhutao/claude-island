@@ -66,7 +66,10 @@ struct ClaudeInstancesView: View {
     }
 
     private var instancesList: some View {
-        ScrollView(.vertical, showsIndicators: false) {
+        // Debug: print session info
+        let _ = print("📋 Rendering \(sortedInstances.count) sessions: \(sortedInstances.map { "\($0.provider):\($0.sessionId.prefix(4))" })")
+        
+        return ScrollView(.vertical, showsIndicators: false) {
             LazyVStack(spacing: 2) {
                 ForEach(sortedInstances) { session in
                     InstanceRow(
@@ -267,7 +270,7 @@ struct InstanceRow: View {
                     )
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 } else {
-                    // Kimi/Codex: Only show "Go to Terminal" button
+                    // Kimi/Codex/Cursor: Only show "Go to Terminal" button
                     // These providers don't support allow via hook, only deny
                     HStack(spacing: 8) {
                         if supportsChatHistory {
@@ -276,7 +279,7 @@ struct InstanceRow: View {
                             }
                         }
                         
-                        GoToTerminalButton(onTap: onFocus)
+                        GoToTerminalButton(provider: session.provider, onTap: onFocus)
                     }
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
@@ -295,11 +298,9 @@ struct InstanceRow: View {
                         }
                     }
 
-                    // Archive button - only for idle or completed sessions
-                    if session.phase == .idle || session.phase == .waitingForInput {
-                        IconButton(icon: "archivebox") {
-                            onArchive()
-                        }
+                    // Archive button - allow removing any session
+                    IconButton(icon: "archivebox") {
+                        onArchive()
                     }
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
@@ -362,7 +363,7 @@ struct InstanceRow: View {
         }
     }
     
-    /// Provider color: Orange for Claude, Blue for Codex
+    /// Provider color: Orange for Claude, Blue for Codex, White for Cursor
     private var providerColor: Color {
         switch session.provider {
         case .claude:
@@ -371,6 +372,8 @@ struct InstanceRow: View {
             return Color(red: 0.2, green: 0.6, blue: 1.0) // Codex blue
         case .kimi:
             return Color(red: 0.0, green: 0.55, blue: 1.0) // Kimi blue
+        case .cursor:
+            return Color(red: 0.95, green: 0.95, blue: 0.95) // Cursor white
         }
     }
     
@@ -387,6 +390,8 @@ struct InstanceRow: View {
             CodexIcon(size: 16, color: providerColor, animate: isProcessing)
         case .kimi:
             KimiIcon(size: 16, color: providerColor, animate: isProcessing)
+        case .cursor:
+            CursorIcon(size: 16, color: providerColor, animate: isProcessing)
         }
     }
 
@@ -539,11 +544,24 @@ struct TerminalButton: View {
     }
 }
 
-// MARK: - Go to Terminal Button (for Kimi/Codex approval)
+// MARK: - Go to Terminal Button (for Kimi/Codex/Cursor approval)
 
 struct GoToTerminalButton: View {
+    let provider: SessionProvider
     let onTap: () -> Void
     @State private var isHovered = false
+    
+    /// Button text based on provider
+    private var buttonText: String {
+        switch provider {
+        case .cursor:
+            return "前往 Cursor"
+        case .kimi, .codex:
+            return "前往终端审批"
+        default:
+            return "前往终端"
+        }
+    }
 
     var body: some View {
         Button {
@@ -552,7 +570,7 @@ struct GoToTerminalButton: View {
             HStack(spacing: 4) {
                 Image(systemName: "bell.badge")
                     .font(.system(size: 10, weight: .medium))
-                Text("前往终端审批")
+                Text(buttonText)
                     .font(.system(size: 11, weight: .medium))
             }
             .foregroundColor(.black)
