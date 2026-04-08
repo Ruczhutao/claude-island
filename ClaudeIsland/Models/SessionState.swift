@@ -194,8 +194,8 @@ struct SessionState: Equatable, Identifiable, Sendable {
     }
 
     var supportsChatHistory: Bool {
-        // Claude, Codex, Kimi, and Cursor all support chat history
-        provider == .claude || provider == .codex || provider == .kimi || provider == .cursor
+        // Claude, Codex, Kimi, Cursor, and Gemini all support chat history
+        provider == .claude || provider == .codex || provider == .kimi || provider == .cursor || provider == .gemini
     }
     
     /// Whether this provider supports in-notch approval (Claude only)

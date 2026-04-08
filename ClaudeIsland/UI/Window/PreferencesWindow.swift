@@ -21,10 +21,10 @@ class PreferencesWindowController: NSObject {
     
     /// Show the preferences window
     func show() {
+        // 如果窗口已存在，关闭并清理
         if let window = window {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            return
+            window.close()
+            self.window = nil
         }
         
         // Create the preferences view

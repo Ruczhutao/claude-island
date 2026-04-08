@@ -19,8 +19,39 @@ struct NotchView: View {
     @ObservedObject var viewModel: NotchViewModel
     @StateObject private var sessionMonitor = ClaudeSessionMonitor()
     @StateObject private var activityCoordinator = NotchActivityCoordinator.shared
+    @StateObject private var marqueeProvider = MarqueeStatusProvider()
     @ObservedObject private var updateManager = UpdateManager.shared
     @AppStorage("idleIconStyle") private var idleIconStyle: String = IdleIconStyle.dog.rawValue
+    @AppStorage("marqueeEnabled") private var marqueeEnabled: Bool = true
+    @AppStorage("marqueeFontSize") private var marqueeFontSize: Double = 11
+    @AppStorage("marqueeFontDesign") private var marqueeFontDesign: String = "default"
+    @AppStorage("marqueeColorActive") private var marqueeColorActive: String = "auto"
+    @AppStorage("marqueeColorIdle") private var marqueeColorIdle: String = "dimWhite"
+    @AppStorage("marqueeEffectMode") private var marqueeEffectModeRaw: String = MarqueeEffectMode.scroll.rawValue
+    @AppStorage("marqueeAnimationSpeed") private var marqueeAnimationSpeed: Double = 1.0
+
+    private var marqueeEffect: MarqueeEffectMode {
+        MarqueeEffectMode(rawValue: marqueeEffectModeRaw) ?? .scroll
+    }
+
+    /// Resolved marquee font
+    private var marqueeFont: Font {
+        let design = FontDesign(rawValue: marqueeFontDesign)?.swiftUIDesign ?? .default
+        return .system(size: marqueeFontSize, weight: .medium, design: design)
+    }
+
+    /// Resolved active color
+    private var resolvedActiveColor: Color {
+        if marqueeColorActive == "auto" {
+            return activityColor.opacity(0.8)
+        }
+        return (MarqueePresetColor(rawValue: marqueeColorActive) ?? .orange).color.opacity(0.8)
+    }
+
+    /// Resolved idle color
+    private var resolvedIdleColor: Color {
+        (MarqueePresetColor(rawValue: marqueeColorIdle) ?? .dimWhite).color
+    }
     @State private var previousPendingIds: Set<String> = []
     @State private var previousWaitingForInputIds: Set<String> = []
     @State private var waitingForInputTimestamps: [String: Date] = [:]  // sessionId -> when it entered waitingForInput
@@ -191,6 +222,7 @@ struct NotchView: View {
         .preferredColorScheme(.dark)
         .onAppear {
             sessionMonitor.startMonitoring()
+            marqueeProvider.startMonitoring(sessionMonitor: sessionMonitor)
             // On non-notched devices, keep visible so users have a target to interact with
             if !viewModel.hasPhysicalNotch {
                 isVisible = true
@@ -274,6 +306,8 @@ struct NotchView: View {
             return Color(red: 0.0, green: 0.55, blue: 1.0) // Kimi blue
         case .cursor:
             return Color(red: 0.95, green: 0.95, blue: 0.95) // White/Silver
+        case .gemini:
+            return Color(red: 0.4, green: 0.4, blue: 1.0) // Gemini purple-blue
         }
     }
     
@@ -288,6 +322,8 @@ struct NotchView: View {
             return "K"
         case .cursor:
             return "⦿"
+        case .gemini:
+            return "G"
         }
     }
     
@@ -303,6 +339,8 @@ struct NotchView: View {
             KimiIcon(size: size, color: activityColor, animate: animate)
         case .cursor:
             CursorIcon(size: size, color: activityColor, animate: animate)
+        case .gemini:
+            GeminiIcon(size: size, color: activityColor, animate: animate)
         }
     }
 
@@ -356,16 +394,41 @@ struct NotchView: View {
                 // Opened: show header content
                 openedHeaderContent
             } else if !showClosedActivity {
-                // Closed without activity: show dog icon with subtle breathing animation
-                // The dog icon is already shown on the left, just use black spacer here
-                Rectangle()
-                    .fill(.black)
-                    .frame(width: closedNotchSize.width - cornerRadiusInsets.closed.top)
+                // Closed without activity: show marquee or black spacer
+                if marqueeEnabled {
+                    MarqueeText(
+                        text: marqueeProvider.marqueeText,
+                        font: marqueeFont,
+                        fontSize: marqueeFontSize,
+                        color: marqueeProvider.isActive ? resolvedActiveColor : resolvedIdleColor,
+                        speed: 30,
+                        maxWidth: closedNotchSize.width - cornerRadiusInsets.closed.top - 8,
+                        effectMode: marqueeEffect
+                    )
+                    .frame(height: closedNotchSize.height)
+                } else {
+                    Rectangle()
+                        .fill(.black)
+                        .frame(width: closedNotchSize.width - cornerRadiusInsets.closed.top)
+                }
             } else {
-                // Closed with activity: black spacer (with optional bounce)
-                Rectangle()
-                    .fill(.black)
-                    .frame(width: closedNotchSize.width - cornerRadiusInsets.closed.top + (isBouncing ? 16 : 0))
+                // Closed with activity: show marquee or black spacer (with optional bounce)
+                if marqueeEnabled {
+                    MarqueeText(
+                        text: marqueeProvider.marqueeText,
+                        font: marqueeFont,
+                        fontSize: marqueeFontSize,
+                        color: resolvedActiveColor,
+                        speed: 30,
+                        maxWidth: closedContentWidth - (dogStatus == .idle ? 32 : 54) - 8,
+                        effectMode: marqueeEffect
+                    )
+                    .frame(height: closedNotchSize.height)
+                } else {
+                    Rectangle()
+                        .fill(.black)
+                        .frame(width: closedNotchSize.width - cornerRadiusInsets.closed.top + (isBouncing ? 16 : 0))
+                }
             }
 
             // Right side indicator removed - only show in conversation list, not in notch header

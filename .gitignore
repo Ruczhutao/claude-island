@@ -58,6 +58,7 @@ temp/
 
 # Audio
 *.mp3
+test-sounds/
 
 # AI tool temp files
 .gitignore_aionui_*

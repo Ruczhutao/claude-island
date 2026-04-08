@@ -38,6 +38,9 @@ struct SoundSettingsView: View {
                             .foregroundColor(.secondary)
                         
                         Slider(value: $soundManager.volume, in: 0...1, step: 0.05)
+                            .onChange(of: soundManager.volume) { _, newValue in
+                                soundManager.setVolume(newValue)
+                            }
                         
                         Image(systemName: "speaker.wave.3.fill")
                             .font(.system(size: 12))
@@ -64,41 +67,49 @@ struct SoundSettingsView: View {
             
             // Custom Sound Folder
             SettingsSection(title: "自定义") {
-                Button {
-                    openSoundsFolder()
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "folder")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-                            .frame(width: 24, height: 24)
-                            .background(
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color.secondary.opacity(0.15))
-                            )
-                        
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("打开音效文件夹")
-                                .font(.system(size: 13, weight: .medium))
-                            Text("添加 MP3 文件，重启后生效")
+                VStack(alignment: .leading, spacing: 12) {
+                    Button {
+                        openSoundsFolder()
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "folder")
+                                .font(.system(size: 14))
+                                .foregroundColor(.secondary)
+                                .frame(width: 24, height: 24)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(Color.secondary.opacity(0.15))
+                                )
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("打开音效文件夹")
+                                    .font(.system(size: 13, weight: .medium))
+                                Text("添加 MP3 文件，自动生效")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "arrow.up.right")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                         }
-                        
-                        Spacer()
-                        
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.secondary.opacity(0.08))
+                        )
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.secondary.opacity(0.08))
-                    )
+                    .buttonStyle(.plain)
+                    
+                    // Show custom sounds count
+                    Text("已添加 \(soundManager.availableSounds.filter { $0.isCustom }.count) 个自定义音效")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .opacity(soundManager.availableSounds.filter { $0.isCustom }.count > 0 ? 1 : 0)
                 }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -121,8 +132,9 @@ struct SoundSettingsView: View {
 
 struct SoundEventRow: View {
     let event: SoundEvent
+    @ObservedObject var soundManager = SoundManager.shared
     @State private var isEnabled: Bool = true
-    @State private var selectedSound: AvailableSound = .pop
+    @State private var selectedSoundId: String = ""
     @State private var showPicker: Bool = false
     
     var body: some View {
@@ -155,7 +167,9 @@ struct SoundEventRow: View {
                 HStack(spacing: 8) {
                     // Preview button
                     Button {
-                        SoundManager.shared.preview(selectedSound)
+                        if let sound = soundManager.getSound(byId: selectedSoundId) {
+                            soundManager.preview(sound)
+                        }
                     } label: {
                         Image(systemName: "play.fill")
                             .font(.system(size: 9))
@@ -175,7 +189,7 @@ struct SoundEventRow: View {
                         }
                     } label: {
                         HStack(spacing: 4) {
-                            Text(selectedSound.rawValue)
+                            Text(selectedSoundId)
                                 .font(.system(size: 12))
                             Image(systemName: showPicker ? "chevron.up" : "chevron.down")
                                 .font(.system(size: 9))
@@ -195,7 +209,7 @@ struct SoundEventRow: View {
                         .toggleStyle(SwitchToggleStyle(tint: Color.accentColor))
                         .labelsHidden()
                         .onChange(of: isEnabled) { _, newValue in
-                            SoundManager.shared.setEnabled(newValue, for: event)
+                            soundManager.setEnabled(newValue, for: event)
                         }
                 }
             }
@@ -203,23 +217,30 @@ struct SoundEventRow: View {
             // Sound picker (expanded) - flat list, no grouping
             if showPicker {
                 VStack(spacing: 2) {
-                    ForEach(AvailableSound.allCases) { sound in
+                    ForEach(soundManager.availableSounds) { sound in
                         Button {
-                            SoundManager.shared.setSound(sound, for: event)
-                            SoundManager.shared.preview(sound)
-                            selectedSound = sound
+                            soundManager.setSound(sound.id, for: event)
+                            soundManager.preview(sound)
+                            selectedSoundId = sound.id
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 showPicker = false
                             }
                         } label: {
                             HStack {
-                                Text(sound.rawValue)
-                                    .font(.system(size: 12))
-                                    .foregroundColor(selectedSound == sound ? .accentColor : .primary)
+                                HStack(spacing: 4) {
+                                    Text(sound.name)
+                                        .font(.system(size: 12))
+                                    if sound.isCustom {
+                                        Image(systemName: "star.fill")
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.yellow)
+                                    }
+                                }
+                                .foregroundColor(selectedSoundId == sound.id ? .accentColor : .primary)
                                 
                                 Spacer()
                                 
-                                if selectedSound == sound {
+                                if selectedSoundId == sound.id {
                                     Image(systemName: "checkmark")
                                         .font(.system(size: 10, weight: .bold))
                                         .foregroundColor(.accentColor)
@@ -229,7 +250,7 @@ struct SoundEventRow: View {
                             .padding(.vertical, 6)
                             .background(
                                 RoundedRectangle(cornerRadius: 4)
-                                    .fill(selectedSound == sound ? Color.accentColor.opacity(0.1) : Color.clear)
+                                    .fill(selectedSoundId == sound.id ? Color.accentColor.opacity(0.1) : Color.clear)
                             )
                         }
                         .buttonStyle(.plain)
@@ -253,10 +274,8 @@ struct SoundEventRow: View {
     }
     
     private func loadConfig() {
-        let config = SoundManager.shared.getConfig(for: event)
+        let config = soundManager.getConfig(for: event)
         isEnabled = config.isEnabled
-        if let sound = AvailableSound(rawValue: config.selectedSound) {
-            selectedSound = sound
-        }
+        selectedSoundId = config.selectedSound
     }
 }

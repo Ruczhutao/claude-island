@@ -278,6 +278,26 @@ struct DisplaySettingsView: View {
     @ObservedObject private var screenSelector = ScreenSelector.shared
     @AppStorage("hideInFullscreen") private var hideInFullscreen = false
     @AppStorage("idleIconStyle") private var idleIconStyle: String = IdleIconStyle.dog.rawValue
+    @AppStorage("marqueeEnabled") private var marqueeEnabled: Bool = true
+    @AppStorage("marqueeTheme") private var marqueeThemeRaw: String = MarqueeTheme.default.rawValue
+    @AppStorage("customPhrasesWorking") private var customWorking: String = ""
+    @AppStorage("customPhrasesApproval") private var customApproval: String = ""
+    @AppStorage("customPhrasesDone") private var customDone: String = ""
+    @AppStorage("customPhrasesIdle") private var customIdle: String = ""
+    @AppStorage("marqueeFontSize") private var fontSize: Double = 11
+    @AppStorage("marqueeFontDesign") private var fontDesignRaw: String = "default"
+    @AppStorage("marqueeColorActive") private var colorActiveRaw: String = "auto"
+    @AppStorage("marqueeColorIdle") private var colorIdleRaw: String = "dimWhite"
+    @AppStorage("marqueeEffectMode") private var effectModeRaw: String = MarqueeEffectMode.scroll.rawValue
+    @AppStorage("marqueeAnimationSpeed") private var animationSpeed: Double = 1.0
+
+    private var selectedTheme: MarqueeTheme {
+        MarqueeTheme(rawValue: marqueeThemeRaw) ?? .default
+    }
+
+    private var selectedEffect: MarqueeEffectMode {
+        MarqueeEffectMode(rawValue: effectModeRaw) ?? .scroll
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -297,9 +317,9 @@ struct DisplaySettingsView: View {
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         Spacer()
-                        
+
                         // Screen picker button
                         Menu {
                             Button("自动") {
@@ -330,7 +350,7 @@ struct DisplaySettingsView: View {
                     }
                 }
             }
-            
+
             // Appearance Section
             SettingsSection(title: "外观") {
                 ToggleRow(
@@ -338,11 +358,224 @@ struct DisplaySettingsView: View {
                     subtitle: "应用进入全屏模式时自动隐藏刘海栏",
                     isOn: $hideInFullscreen
                 )
-                
-                // Note: API usage display is planned for future release
-                // This requires integration with Claude/Codex API usage endpoints
+            }
+
+            // Marquee Section
+            SettingsSection(title: "状态栏短语") {
+                ToggleRow(
+                    title: "启用状态栏短语",
+                    subtitle: "在闭合刘海栏中显示状态提示文字",
+                    isOn: $marqueeEnabled
+                )
+
+                if marqueeEnabled {
+                    // Theme Picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("主题风格")
+                            .font(.system(size: 12, weight: .medium))
+
+                        HStack(spacing: 8) {
+                            ForEach(MarqueeTheme.allCases) { theme in
+                                let isSelected = selectedTheme == theme
+                                Button {
+                                    marqueeThemeRaw = theme.rawValue
+                                } label: {
+                                    Text(theme.displayName)
+                                        .font(.system(size: 11, weight: isSelected ? .semibold : .medium))
+                                        .foregroundColor(isSelected ? .white : .primary)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 6)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .fill(isSelected
+                                                      ? Color(red: 0.35, green: 0.55, blue: 0.95)
+                                                      : Color.secondary.opacity(0.1))
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    // Custom Editor (only when custom theme selected)
+                    if selectedTheme == .custom {
+                        customPhraseEditor(
+                            title: "工作中",
+                            hint: "Agent 正在处理任务时显示",
+                            text: $customWorking
+                        )
+                        customPhraseEditor(
+                            title: "等待审批",
+                            hint: "Agent 需要用户确认时显示",
+                            text: $customApproval
+                        )
+                        customPhraseEditor(
+                            title: "任务完成",
+                            hint: "任务完成等待下一步时显示",
+                            text: $customDone
+                        )
+                        customPhraseEditor(
+                            title: "空闲",
+                            hint: "没有活跃会话时显示",
+                            text: $customIdle
+                        )
+                    }
+
+                    // Effect Mode Picker
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("文字效果")
+                            .font(.system(size: 12, weight: .medium))
+
+                        Picker("", selection: $effectModeRaw) {
+                            ForEach(MarqueeEffectMode.allCases) { mode in
+                                Text(mode.displayName).tag(mode.rawValue)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+
+                    // Animation Speed
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("动画速度")
+                                .font(.system(size: 12, weight: .medium))
+                            Spacer()
+                            Text(String(format: "%.1fx", animationSpeed))
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .frame(width: 36, alignment: .trailing)
+                        }
+                        Slider(value: $animationSpeed, in: 0.2...2.0, step: 0.1)
+                    }
+
+                    // Font & Color Settings
+                    VStack(alignment: .leading, spacing: 12) {
+                        // Font size
+                        HStack {
+                            Text("字体大小")
+                                .font(.system(size: 12, weight: .medium))
+                            Spacer()
+                            Text("\(Int(fontSize))pt")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .frame(width: 36, alignment: .trailing)
+                        }
+                        Slider(value: $fontSize, in: 9...16, step: 1)
+
+                        // Font design
+                        HStack {
+                            Text("字体风格")
+                                .font(.system(size: 12, weight: .medium))
+                            Spacer()
+                            HStack(spacing: 6) {
+                                ForEach(FontDesign.allCases) { design in
+                                    let isSelected = fontDesignRaw == design.rawValue
+                                    Button {
+                                        fontDesignRaw = design.rawValue
+                                    } label: {
+                                        Text(design.displayName)
+                                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                                            .foregroundColor(isSelected ? .white : .primary)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 4)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 4)
+                                                    .fill(isSelected
+                                                          ? Color(red: 0.35, green: 0.55, blue: 0.95)
+                                                          : Color.secondary.opacity(0.1))
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+
+                        // Active color
+                        colorPickerRow(
+                            title: "活跃时颜色",
+                            selection: $colorActiveRaw,
+                            options: [.auto, .orange, .blue, .purple, .green, .yellow, .white]
+                        )
+
+                        // Idle color
+                        colorPickerRow(
+                            title: "空闲时颜色",
+                            selection: $colorIdleRaw,
+                            options: [.dimWhite, .dimGray, .dimBlue, .dimGreen, .white, .blue, .green]
+                        )
+                    }
+                }
             }
         }
+    }
+
+    // MARK: - Color Picker Row
+
+    private func colorPickerRow(title: String, selection: Binding<String>, options: [MarqueePresetColor]) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+            Spacer()
+            HStack(spacing: 6) {
+                ForEach(options) { option in
+                    Button {
+                        selection.wrappedValue = option.rawValue
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(option.color)
+                                .frame(width: 20, height: 20)
+                            if selection.wrappedValue == option.rawValue {
+                                Circle()
+                                    .stroke(Color(red: 0.35, green: 0.55, blue: 0.95), lineWidth: 2)
+                                    .frame(width: 24, height: 24)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    // MARK: - Custom Phrase Editor
+
+    private func customPhraseEditor(title: String, hint: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                Spacer()
+                Text("\(lineCount(text.wrappedValue))/10 条")
+                    .font(.system(size: 10))
+                    .foregroundColor(lineCount(text.wrappedValue) > 10 ? .red : .secondary)
+            }
+
+            TextEditor(text: text)
+                .font(.system(size: 12))
+                .frame(height: 72)
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(NSColor.textBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                )
+
+            Text(hint + "，每行一条")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private func lineCount(_ text: String) -> Int {
+        text.components(separatedBy: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            .count
     }
 }
 
@@ -646,6 +879,9 @@ struct UpdateSettingsRow: View {
 extension View {
     func updateCheckAlert(isPresented: Binding<Bool>) -> some View {
         self.alert("朱涛忙着呢，等会儿的", isPresented: isPresented) {
+            Button("取消", role: .cancel) {
+                // 关闭弹窗
+            }
             Button("默默支持，给他点赞") {
                 // 跳转到点赞视频
                 if let url = URL(string: "https://www.bilibili.com/video/BV124411A7sS/?spm_id_from=333.337.search-card.all.click&vd_source=f7f066dc4b95e192aad482bfc4f861e5") {

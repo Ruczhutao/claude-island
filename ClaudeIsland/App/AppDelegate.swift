@@ -28,6 +28,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         super.init()
         AppDelegate.shared = self
 
+        // Initialize Mixpanel early to avoid "initialize before main instance" errors
+        Mixpanel.initialize(token: "49814c1436104ed108f3fc4735228496")
+
         do {
             try updater.start()
         } catch {
@@ -41,7 +44,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        Mixpanel.initialize(token: "49814c1436104ed108f3fc4735228496")
+        // Mixpanel is already initialized in override init() to avoid race conditions
+        // with SessionStore events that may arrive via socket before this method is called
 
         let distinctId = getOrCreateDistinctId()
         Mixpanel.mainInstance().identify(distinctId: distinctId)

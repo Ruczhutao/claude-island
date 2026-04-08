@@ -12,6 +12,7 @@ enum SessionProvider: String, Codable, Equatable, Sendable {
     case codex
     case kimi
     case cursor
+    case gemini
 
     var displayName: String {
         switch self {
@@ -23,6 +24,8 @@ enum SessionProvider: String, Codable, Equatable, Sendable {
             return "Kimi 代码助手"
         case .cursor:
             return "Cursor 编辑器"
+        case .gemini:
+            return "Gemini 代码助手"
         }
     }
 }

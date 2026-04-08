@@ -363,7 +363,7 @@ struct InstanceRow: View {
         }
     }
     
-    /// Provider color: Orange for Claude, Blue for Codex, White for Cursor
+    /// Provider color: Orange for Claude, Blue for Codex, White for Cursor, Purple for Gemini
     private var providerColor: Color {
         switch session.provider {
         case .claude:
@@ -374,6 +374,8 @@ struct InstanceRow: View {
             return Color(red: 0.0, green: 0.55, blue: 1.0) // Kimi blue
         case .cursor:
             return Color(red: 0.95, green: 0.95, blue: 0.95) // Cursor white
+        case .gemini:
+            return Color(red: 0.4, green: 0.4, blue: 1.0) // Gemini purple-blue
         }
     }
     
@@ -392,6 +394,8 @@ struct InstanceRow: View {
             KimiIcon(size: 16, color: providerColor, animate: isProcessing)
         case .cursor:
             CursorIcon(size: 16, color: providerColor, animate: isProcessing)
+        case .gemini:
+            GeminiIcon(size: 16, color: providerColor, animate: isProcessing)
         }
     }
 
@@ -556,7 +560,7 @@ struct GoToTerminalButton: View {
         switch provider {
         case .cursor:
             return "前往 Cursor"
-        case .kimi, .codex:
+        case .kimi, .codex, .gemini:
             return "前往终端审批"
         default:
             return "前往终端"

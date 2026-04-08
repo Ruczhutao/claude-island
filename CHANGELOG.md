@@ -4,7 +4,78 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
-## [Unreleased]
+## [2.3.1] - 2026-04-08
+
+### 新增
+
+#### 状态栏文字动效系统
+- 为 Notch 关闭态的状态短语新增 4 种文字效果：
+  - **滚动** — 同一状态下多条短语拼接成长串，持续无缝滚动
+  - **快闪** — 短语快速淡入淡出切换，保持动态
+  - **打字机** — 逐字打出随机短语，`_` 光标闪烁，打完停留后切换下一句
+  - **静态** — 单条短语居中显示
+- 新增「动画速度」Slider，范围 0.2x – 2.0x，统一控制所有动效速度
+
+### 改进
+- 状态栏短语不再每 8 秒随机跳变，切换更自然流畅
+- 文本宽度测量改用真实字体大小，滚动判断更准确
+
+### 修复
+- **严重崩溃** — 修复 `deinit` 中异步访问 `self` 导致的 `SIGSEGV` / `EXC_BAD_ACCESS` 启动崩溃
+- **设置卡死** — 修复拖动「动画速度」Slider 时因 `UserDefaults.didChangeNotification` 风暴导致的主线程卡死
+
+### 变更
+- 移除「马克思」预设主题（用户可将其内容用于自定义主题）
+
+## [2.3.0] - 2026-04-08
+
+### 新增
+
+#### Gemini CLI 完整支持 ✅
+- **第五 Provider 完整集成** - Gemini CLI (v0.36.0+) 现已完全支持
+  - 支持事件：SessionStart, BeforeAgent, BeforeTool, AfterTool, AfterAgent, SessionEnd
+  - 事件映射：BeforeAgent → UserPromptSubmit, BeforeTool → PreToolUse, AfterTool → PostToolUse, AfterAgent → Stop
+  - 使用 Gemini CLI 原生嵌套 hook 格式 `{"hooks": [{"command":..., "type": "command"}]}`
+  - Hook 脚本输出 `{"continue":true}` 符合 Gemini CLI 协议
+  - 显示 Gemini 菱形星星像素图标（蓝紫色，带闪烁动画）
+- **新增文件**：
+  - `ClaudeIsland/Resources/gemini-island-state.py` - Gemini bridge 脚本
+  - `ClaudeIsland/UI/Components/GeminiIcon.swift` - 菱形星星像素图标
+- **配置文件**：`~/.gemini/settings.json` (hooks 部分)
+- **Hook 脚本安装路径**：`~/.gemini/hooks/gemini-island-state.py`
+
+#### 浏览器全屏自动隐藏修复
+- 浏览器（Safari/Chrome/Firefox/Edge/Arc/Brave）进入全屏模式时刘海栏不再遮挡
+- 检测间隔从 2 秒缩短到 0.5 秒，检测所有屏幕
+
+#### 自定义铃声修复
+- `AvailableSound` 从 enum 改为 struct，支持动态扫描自定义 MP3 铃声
+- 每 2 秒自动扫描 Sounds 目录，新增铃声无需重启即可出现
+- 修复预览播放中断问题
+
+### 改进
+- HookInstaller 支持 Gemini CLI 的嵌套 hook 格式安装
+- SessionStore 支持 Gemini 的工具审批流程
+- 全屏检测覆盖所有主流浏览器
+
+### 修复
+- **设置窗口状态重置** - 每次打开设置窗口都是全新实例，不再复用旧窗口
+- **检查更新弹窗** - 添加取消按钮，关闭弹窗更方便
+
+#### 状态栏短语系统
+- **刘海栏滚动文字** - 关闭态刘海内显示状态提示文字
+  - 根据会话状态自动切换：工作中 / 等待审批 / 任务完成 / 空闲
+  - 每种状态从短语库中随机选取，8 秒自动更换
+  - 多个 Agent 同时工作时显示数量（如 "2 个 Agent 正在工作"）
+- **主题包系统** - 内置两套主题风格 + 自定义模式
+  - 「默认」— 简洁专业风格
+  - 「汪星人」— 趣味汪汪风格
+  - 「自定义」— 用户可编辑每种状态的短语（每状态最多 10 条，每行一条）
+- **设置界面** - 显示设置中新增「状态栏短语」区段，含主题选择器和自定义编辑器
+- **新增文件**：
+  - `ClaudeIsland/UI/Components/MarqueeText.swift` - 滚动文字组件
+  - `ClaudeIsland/UI/Components/MarqueeStatusProvider.swift` - 短语状态管理（含主题定义）
+- **Mixpanel 初始化** - 将初始化移到 `override init()` 中，避免 socket 事件提前触发导致的 crash
 
 ## [2.2.0] - 2026-04-06
 

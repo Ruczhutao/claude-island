@@ -80,13 +80,13 @@ actor CursorWindowMonitor {
         
         // Priority 1: Window with matching project name in title
         if let match = windows.first(where: { $0.title.lowercased().contains(projectName) }) {
-            logger.info("Found Cursor window matching project '\(projectName, privacy: .public)': \(match.title, privacy: .public)")
+            await logger.info("Found Cursor window matching project '\(projectName, privacy: .public)': \(match.title, privacy: .public)")
             return match
         }
         
         // Priority 2: First visible window
         if let visible = windows.first(where: { $0.isVisible }) {
-            logger.info("Using first visible Cursor window: \(visible.title, privacy: .public)")
+            await logger.info("Using first visible Cursor window: \(visible.title, privacy: .public)")
             return visible
         }
         
@@ -97,7 +97,7 @@ actor CursorWindowMonitor {
     /// Focus a specific Cursor window
     func focusWindow(_ windowInfo: CursorWindowInfo) async -> Bool {
         guard let cursorApp = findCursorApp() else {
-            logger.warning("Cannot focus: Cursor not running")
+            await logger.warning("Cannot focus: Cursor not running")
             return false
         }
         
@@ -112,7 +112,7 @@ actor CursorWindowMonitor {
         }
         
         // Fallback: just activating the app should bring it to front
-        logger.info("Focused Cursor app (yabai not available or failed)")
+        await logger.info("Focused Cursor app (yabai not available or failed)")
         return true
     }
     
