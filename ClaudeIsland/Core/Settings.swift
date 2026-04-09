@@ -36,6 +36,7 @@ enum MarqueeEffectMode: String, CaseIterable, Identifiable {
     case scroll = "scroll"
     case flash = "flash"
     case typewriter = "typewriter"
+    case sparkle = "sparkle"
     case `static` = "static"
 
     var id: String { rawValue }
@@ -45,6 +46,7 @@ enum MarqueeEffectMode: String, CaseIterable, Identifiable {
         case .scroll: return "滚动"
         case .flash: return "快闪"
         case .typewriter: return "打字机"
+        case .sparkle: return "逐星"
         case .static: return "静态"
         }
     }

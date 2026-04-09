@@ -72,10 +72,7 @@ actor SessionPersistence {
             let now = Date()
             
             // Filter out expired sessions
-            let validSessions = persistedSessions.filter {
-                let age = now.timeIntervalSince($0.savedAt)
-                return age < maxSessionAge
-            }
+            let validSessions = persistedSessions.filter { shouldRestore($0, now: now) }
             
             // Clean up expired sessions if any were filtered out
             if validSessions.count < persistedSessions.count {
@@ -105,6 +102,16 @@ actor SessionPersistence {
     
     /// Check if a session should be persisted
     private func shouldPersist(_ session: SessionState) -> Bool {
+        // Codex conversations should not come back after restart once they are idle.
+        if session.provider == .codex {
+            switch session.phase {
+            case .processing, .compacting, .waitingForApproval:
+                break
+            case .waitingForInput, .idle, .ended:
+                return false
+            }
+        }
+
         // Don't persist sessions that are ended or very old
         if session.phase == .ended {
             return false
@@ -116,6 +123,25 @@ actor SessionPersistence {
             return false
         }
         
+        return true
+    }
+
+    /// Check if a persisted session should be restored on launch
+    private func shouldRestore(_ session: PersistedSession, now: Date) -> Bool {
+        let age = now.timeIntervalSince(session.savedAt)
+        guard age < maxSessionAge else {
+            return false
+        }
+
+        if session.providerRawValue == SessionProvider.codex.rawValue {
+            switch session.phaseRawValue {
+            case "processing", "compacting", "waitingForApproval":
+                return true
+            default:
+                return false
+            }
+        }
+
         return true
     }
 }

@@ -376,6 +376,8 @@ struct InstanceRow: View {
             return Color(red: 0.95, green: 0.95, blue: 0.95) // Cursor white
         case .gemini:
             return Color(red: 0.4, green: 0.4, blue: 1.0) // Gemini purple-blue
+        case .qwen:
+            return Color(red: 0.38, green: 0.28, blue: 0.88) // Qwen purple
         }
     }
     
@@ -396,6 +398,8 @@ struct InstanceRow: View {
             CursorIcon(size: 16, color: providerColor, animate: isProcessing)
         case .gemini:
             GeminiIcon(size: 16, color: providerColor, animate: isProcessing)
+        case .qwen:
+            QwenIcon(size: 16, color: providerColor, animate: isProcessing)
         }
     }
 
@@ -562,6 +566,8 @@ struct GoToTerminalButton: View {
             return "前往 Cursor"
         case .kimi, .codex, .gemini:
             return "前往终端审批"
+        case .qwen:
+            return "前往终端"
         default:
             return "前往终端"
         }

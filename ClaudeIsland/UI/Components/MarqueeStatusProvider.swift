@@ -350,7 +350,7 @@ class MarqueeStatusProvider: ObservableObject {
         case .scroll:
             stopFlashTimer()
             buildScrollingText()
-        case .flash, .typewriter, .static:
+        case .flash, .typewriter, .sparkle, .static:
             stopFlashTimer()
             pickRandomPhrase()
             if mode == .flash {

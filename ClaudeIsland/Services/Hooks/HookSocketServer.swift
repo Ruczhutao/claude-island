@@ -104,16 +104,15 @@ struct HookEvent: Codable, Sendable {
     }
 
     /// Whether this event expects a response (permission request)
-    /// Note: Only Claude supports full in-notch approval (allow/deny via PermissionRequest)
-    /// Kimi and Codex only notify about approval needs, user must go to terminal
+    /// Claude and Qwen support full in-notch approval (allow/deny via PermissionRequest)
+    /// Kimi, Codex, Gemini, Cursor only notify about approval needs, user must go to terminal/app
     nonisolated var expectsResponse: Bool {
-        // Only Claude's PermissionRequest expects a response
+        // Claude and Qwen PermissionRequest expect a response
         if event == "PermissionRequest" && status == "waiting_for_approval" {
-            return true
+            return provider == .claude || provider == .qwen
         }
-        // Note: Codex and Kimi used to block on PreToolUse, but they don't support
-        // 'allow' via hook response - user must go to terminal. So we don't expect
-        // a response from the app for these providers.
+        // Note: Codex, Kimi, Gemini, Cursor don't support 'allow' via hook response
+        // - user must go to terminal/app. So we don't expect a response for these.
         return false
     }
 }

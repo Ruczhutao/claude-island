@@ -36,9 +36,9 @@ enum CLIProvider: String, CaseIterable, Identifiable {
     
     var isSupported: Bool {
         switch self {
-        case .claude, .codex, .kimi, .cursor, .gemini:
+        case .claude, .codex, .kimi, .cursor, .gemini, .qwen:
             return true
-        case .qwen, .copilot:
+        case .copilot:
             return false
         }
     }
@@ -57,10 +57,11 @@ struct HookInstaller {
         installKimiHooks()
         installCursorHooks()
         installGeminiHooks()
+        installQwenHooks()
     }
 
     static func isInstalled() -> Bool {
-        isClaudeInstalled() || isCodexInstalled() || isKimiInstalled() || isCursorInstalled() || isGeminiInstalled()
+        isClaudeInstalled() || isCodexInstalled() || isKimiInstalled() || isCursorInstalled() || isGeminiInstalled() || isQwenInstalled()
     }
 
     static func uninstall() {
@@ -69,6 +70,7 @@ struct HookInstaller {
         uninstallKimiHooks()
         uninstallCursorHooks()
         uninstallGeminiHooks()
+        uninstallQwenHooks()
     }
 
     // MARK: - Per-Provider API
@@ -81,6 +83,7 @@ struct HookInstaller {
         case .kimi: return isKimiInstalled()
         case .cursor: return isCursorInstalled()
         case .gemini: return isGeminiInstalled()
+        case .qwen: return isQwenInstalled()
         default: return false
         }
     }
@@ -93,6 +96,7 @@ struct HookInstaller {
         case .kimi: installKimiHooks()
         case .cursor: installCursorHooks()
         case .gemini: installGeminiHooks()
+        case .qwen: installQwenHooks()
         default: break
         }
     }
@@ -105,6 +109,7 @@ struct HookInstaller {
         case .kimi: uninstallKimiHooks()
         case .cursor: uninstallCursorHooks()
         case .gemini: uninstallGeminiHooks()
+        case .qwen: uninstallQwenHooks()
         default: break
         }
     }
@@ -465,6 +470,74 @@ struct HookInstaller {
         let command = "\(python) ~/.gemini/hooks/gemini-island-state.py"
         // Remove from trusted hooks
         removeGeminiTrustedHook(geminiDir: geminiDir, fullCommand: command)
+    }
+
+    // MARK: - Qwen
+
+    // Qwen Code uses identical hook format to Claude Code
+    // Config: ~/.qwen/settings.json
+
+    private static func installQwenHooks() {
+        let qwenDir = fileManager.homeDirectoryForCurrentUser.appendingPathComponent(".qwen")
+        let hooksDir = qwenDir.appendingPathComponent("hooks")
+        let scriptURL = hooksDir.appendingPathComponent("qwen-island-state.py")
+        let settingsURL = qwenDir.appendingPathComponent("settings.json")
+
+        installBundledScript(
+            resourceName: "qwen-island-state",
+            destination: scriptURL
+        )
+
+        let python = detectPython()
+        let command = "\(python) ~/.qwen/hooks/qwen-island-state.py"
+        let hookEntry: [[String: Any]] = [["type": "command", "command": command]]
+        let hookEntryWithTimeout: [[String: Any]] = [["type": "command", "command": command, "timeout": 86400]]
+        let withMatcher: [[String: Any]] = [["matcher": "*", "hooks": hookEntry]]
+        let withMatcherAndTimeout: [[String: Any]] = [["matcher": "*", "hooks": hookEntryWithTimeout]]
+        let withoutMatcher: [[String: Any]] = [["hooks": hookEntry]]
+        let preCompactConfig: [[String: Any]] = [
+            ["matcher": "auto", "hooks": hookEntry],
+            ["matcher": "manual", "hooks": hookEntry]
+        ]
+
+        let hookEvents: [(String, [[String: Any]])] = [
+            ("UserPromptSubmit", withoutMatcher),
+            ("PreToolUse", withMatcher),
+            ("PostToolUse", withMatcher),
+            ("PermissionRequest", withMatcherAndTimeout),
+            ("Notification", withMatcher),
+            ("Stop", withoutMatcher),
+            ("SubagentStop", withoutMatcher),
+            ("SessionStart", withoutMatcher),
+            ("SessionEnd", withoutMatcher),
+            ("PreCompact", preCompactConfig),
+        ]
+
+        updateHooksFile(
+            at: settingsURL,
+            commandIdentifier: "qwen-island-state.py",
+            hookEvents: hookEvents
+        )
+    }
+
+    private static func isQwenInstalled() -> Bool {
+        let settingsURL = fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent(".qwen/settings.json")
+        return hooksFile(at: settingsURL).contains { command in
+            command.contains("qwen-island-state.py")
+        }
+    }
+
+    private static func uninstallQwenHooks() {
+        let qwenDir = fileManager.homeDirectoryForCurrentUser.appendingPathComponent(".qwen")
+        let scriptURL = qwenDir.appendingPathComponent("hooks/qwen-island-state.py")
+        let settingsURL = qwenDir.appendingPathComponent("settings.json")
+
+        try? fileManager.removeItem(at: scriptURL)
+        removeHookCommand(
+            at: settingsURL,
+            commandIdentifier: "qwen-island-state.py"
+        )
     }
 
     // MARK: - Shared Helpers

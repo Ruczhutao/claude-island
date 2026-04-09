@@ -103,6 +103,7 @@ struct MarqueeText: View {
     let effectMode: MarqueeEffectMode
 
     @StateObject private var typewriter = TypewriterController()
+    @State private var sparkleIndex: Int = 0
     @State private var offset: CGFloat = 0
     @State private var textWidth: CGFloat = 0
     @State private var lastUpdateTime: Date = .distantPast
@@ -118,6 +119,8 @@ struct MarqueeText: View {
                 flashContent
             case .typewriter:
                 typewriterContent
+            case .sparkle:
+                sparkleContent
             case .static:
                 staticContent
             }
@@ -141,20 +144,32 @@ struct MarqueeText: View {
     private func handleAppear() {
         measureText()
         offset = maxWidth
+        sparkleIndex = 0
         if effectMode == .typewriter {
             typewriter.start(with: text, speed: AppSettings.marqueeAnimationSpeed)
+            stopSparkleTimer()
+        } else if effectMode == .sparkle {
+            typewriter.stop()
+            startSparkleTimer()
         } else {
             typewriter.stop()
+            stopSparkleTimer()
         }
     }
 
     private func handleTextChange() {
         measureText()
         offset = maxWidth
+        sparkleIndex = 0
         if effectMode == .typewriter {
             typewriter.start(with: text, speed: AppSettings.marqueeAnimationSpeed)
+            stopSparkleTimer()
+        } else if effectMode == .sparkle {
+            typewriter.stop()
+            startSparkleTimer()
         } else {
             typewriter.stop()
+            stopSparkleTimer()
         }
     }
 
@@ -230,7 +245,66 @@ struct MarqueeText: View {
                 .foregroundColor(color)
                 .lineLimit(1)
         }
-        .frame(width: maxWidth, alignment: .leading)
+        .frame(width: maxWidth, alignment: .center)
+    }
+
+    // MARK: - Sparkle Effect (逐星)
+
+    @State private var sparkleCancellable: AnyCancellable?
+
+    private func startSparkleTimer() {
+        sparkleCancellable?.cancel()
+        let interval = 0.1 / speedMultiplier
+        sparkleCancellable = Timer.publish(every: interval, tolerance: 0.02, on: .main, in: .common)
+            .autoconnect()
+            .sink { _ in
+                if !text.isEmpty {
+                    sparkleIndex = (sparkleIndex + 1) % max(text.count, 1)
+                }
+            }
+    }
+
+    private func stopSparkleTimer() {
+        sparkleCancellable?.cancel()
+        sparkleCancellable = nil
+    }
+
+    /// Get color for a character at given index, with tail trail effect
+    private func sparkleColor(for index: Int, count: Int) -> Color {
+        let current = sparkleIndex % max(count, 1)
+        let distance = (index - current + count) % count  // circular distance forward
+
+        if distance == 0 {
+            // Current highlight - brightest
+            return .white
+        } else if distance == 1 {
+            // Trail 1
+            return color.opacity(0.7)
+        } else if distance == 2 {
+            // Trail 2
+            return color.opacity(0.5)
+        } else {
+            // Rest
+            return color.opacity(0.3)
+        }
+    }
+
+    @ViewBuilder
+    private var sparkleContent: some View {
+        let chars = Array(text)
+        if chars.isEmpty {
+            EmptyView()
+        } else {
+            HStack(spacing: 0) {
+                ForEach(0..<chars.count, id: \.self) { i in
+                    Text(String(chars[i]))
+                        .font(font)
+                        .foregroundColor(sparkleColor(for: i, count: chars.count))
+                        .lineLimit(1)
+                }
+            }
+            .frame(width: maxWidth, alignment: .center)
+        }
     }
 
     // MARK: - Static Effect

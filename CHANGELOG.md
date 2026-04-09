@@ -4,6 +4,36 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [2.3.2] - 2026-04-09
+
+### 新增
+
+#### Qwen CLI 像素图标
+- **全新 Qwen Provider 图标** — 基于 Qwen 官方 logo 设计的 16×16 像素六角星形
+  - 6 个彩色花瓣，渐变色接近原 logo（紫罗兰→粉紫→玫红→橙红→橙粉→紫色）
+  - 中心白色亮点，模拟光效
+  - Running 状态：花瓣高亮顺时针旋转动画
+  - Waiting 状态：整体脉冲缩放（0.88x）
+  - Sleeping 状态：呼吸缩放（0.92x）+ 透明度 0.85
+  - Idle 状态：静态显示
+- **新增文件**：
+  - `ClaudeIsland/UI/Components/QwenIcon.swift` — 完整 4 状态像素图标实现
+
+#### Qwen Notch 内审批支持
+- **修复 Qwen PermissionRequest 无法在 Notch 中审批的 bug**
+  - `HookSocketServer.swift` 的 `expectsResponse` 方法现在包含 `.qwen` provider
+  - Qwen 现在支持完整的 allow/deny 决策返回，与 Claude 一致
+- **注意**：Codex、Kimi、Cursor、Gemini 因 CLI 本身限制，不支持 `allow` 返回，仍需前往终端/IDE 审批
+
+### 变更
+- Qwen 图标仅作为 CLI Provider 图标使用，不作为待机图标选择器选项
+- Codex 会话标题现在优先显示首条用户消息，多个 conversation 在列表里更容易区分
+- README 支持矩阵与 hook 配置说明同步到当前真实能力
+
+### 修复
+- **Qwen Running 动画完整轮转** — 运行态高亮从 4 帧改为 6 帧，6 个花瓣都会依次成为高亮焦点
+- **Codex 会话残留恢复** — app 重启后不再恢复停留在 `waitingForInput` / 空闲态的旧 Codex conversation，减少列表中“像重复会话”的残留项
+
 ## [2.3.1] - 2026-04-08
 
 ### 新增

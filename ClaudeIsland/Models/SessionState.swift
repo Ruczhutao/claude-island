@@ -133,9 +133,12 @@ struct SessionState: Equatable, Identifiable, Sendable {
         return sessionId
     }
 
-    /// Display title: summary > first user message > project name
+    /// Display title: provider-aware title priority for clearer session distinction
     var displayTitle: String {
-        conversationInfo.summary ?? conversationInfo.firstUserMessage ?? projectName
+        if provider == .codex {
+            return conversationInfo.firstUserMessage ?? conversationInfo.summary ?? projectName
+        }
+        return conversationInfo.summary ?? conversationInfo.firstUserMessage ?? projectName
     }
 
     /// Best hint for matching window title
@@ -194,14 +197,15 @@ struct SessionState: Equatable, Identifiable, Sendable {
     }
 
     var supportsChatHistory: Bool {
-        // Claude, Codex, Kimi, Cursor, and Gemini all support chat history
-        provider == .claude || provider == .codex || provider == .kimi || provider == .cursor || provider == .gemini
+        // All supported providers support chat history
+        provider == .claude || provider == .codex || provider == .kimi || provider == .cursor || provider == .gemini || provider == .qwen
     }
-    
-    /// Whether this provider supports in-notch approval (Claude only)
+
+    /// Whether this provider supports in-notch approval
+    /// Claude and Qwen support allow/deny via PermissionRequest hook
     /// Kimi, Codex, and Cursor don't support 'allow' via hook - user must go to the app
     var supportsInNotchApproval: Bool {
-        provider == .claude
+        provider == .claude || provider == .qwen
     }
 }
 

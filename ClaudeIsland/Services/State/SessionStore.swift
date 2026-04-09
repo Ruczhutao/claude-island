@@ -276,6 +276,7 @@ actor SessionStore {
                     // Codex, Kimi, and Gemini use PreToolUse as the approval point, so mark as waiting
                     let initialStatus: ToolStatus = (event.provider == .codex || event.provider == .kimi || event.provider == .gemini) ? .waitingForApproval : .running
 
+
                     let placeholderItem = ChatHistoryItem(
                         id: toolUseId,
                         type: .toolCall(ToolCallItem(
@@ -319,7 +320,7 @@ actor SessionStore {
     }
 
     private func processSubagentTracking(event: HookEvent, session: inout SessionState) {
-        guard event.provider == .claude || event.provider == .kimi || event.provider == .gemini else { return }
+        guard event.provider == .claude || event.provider == .kimi || event.provider == .gemini || event.provider == .qwen else { return }
         switch event.event {
         case "PreToolUse":
             if event.tool == "Task", let toolUseId = event.toolUseId {

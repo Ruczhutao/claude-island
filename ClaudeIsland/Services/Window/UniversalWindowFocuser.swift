@@ -92,7 +92,7 @@ actor UniversalWindowFocuser {
         }
 
         // Terminal detection (default for most CLI sessions)
-        if session.provider == .claude || session.provider == .codex || session.provider == .kimi || session.provider == .gemini {
+        if session.provider == .claude || session.provider == .codex || session.provider == .kimi || session.provider == .gemini || session.provider == .qwen {
             // Check if running in terminal by tty presence
             if session.tty != nil {
                 return .terminal

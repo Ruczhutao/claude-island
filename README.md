@@ -20,15 +20,16 @@
 
 - **🎨 Idle Icon System** — 6 pixel-art icons (Dog, Cat, Robot, Island, Ghost, Lighthouse) with status animations
 - **🔴 Dynamic Notch UI** — Expands from the MacBook notch to show session status and controls
-- **🤖 Multi-Provider Support** — Monitor Claude Code, Codex CLI, Kimi CLI, Cursor, and Gemini CLI simultaneously
+- **🤖 Multi-Provider Support** — Monitor Claude Code, Codex CLI, Kimi CLI, Cursor, Gemini CLI, and Qwen simultaneously
 - **📊 Status Indicators** — Visual state symbols: ! (processing), ? (waiting approval), ✓ (done)
 - **🔔 Smart Notifications** — Sound alerts for session start, tool approvals, and task completion
 - **✅ Permission Handling** — 
-  - Claude: Approve/deny directly in the notch
-  - Codex/Kimi/Cursor: "Go to Terminal" button for quick access
+  - Claude / Qwen: Approve/deny directly in the notch
+  - Codex / Kimi / Gemini: "Go to Terminal" button for quick access
+  - Cursor: return to the IDE to approve
 - **💬 Chat History** — View full conversation history with markdown rendering
 - **🏷️ Status Bar Phrases** — Scrolling status text in the closed notch with theme packs (Default / Doggy / Custom)
-- **✨ Marquee Text Effects** — Four animation styles for status phrases: scroll, flash, typewriter, and static, with adjustable speed
+- **✨ Marquee Text Effects** — Five animation styles for status phrases: scroll, flash, typewriter, sparkle, and static, with adjustable speed
 - **🖥️ Browser Fullscreen Auto-Hide** — Notch bar automatically hides when Safari, Chrome, Firefox, Edge, Arc, or Brave enters fullscreen
 - **⚙️ Preferences Window** — Settings for idle icon, sounds, marquee phrases, and CLI hooks
 - **🔧 Auto-Setup** — Hooks install automatically for enabled CLIs
@@ -40,8 +41,8 @@
 | **Claude Code** | ✅ Supported | ✅ In-notch |
 | **Codex** | ✅ Supported | 🔘 Terminal |
 | **Kimi** | ✅ Supported | 🔘 Terminal |
-| **Cursor** | ✅ Supported (3.0+) | 🔘 Terminal |
-| **Qwen** | 🚧 Coming Soon | — |
+| **Cursor** | ✅ Supported (3.0+) | 🔘 IDE |
+| **Qwen** | ✅ Supported | ✅ In-notch |
 | **Gemini CLI** | ✅ Supported | 🔘 Terminal |
 | **GitHub Copilot** | 🚧 Coming Soon | — |
 
@@ -92,6 +93,7 @@ Agent Island installs hooks into each CLI's config directory:
 - `~/.kimi/hooks/` for Kimi CLI
 - `~/.cursor/hooks.json` for Cursor (3.0+)
 - `~/.gemini/settings.json` for Gemini CLI
+- `~/.qwen/settings.json` for Qwen
 
 Hooks communicate session state via a Unix socket (`/tmp/claude-island.sock`). The app listens for events and displays them in the notch overlay.
 

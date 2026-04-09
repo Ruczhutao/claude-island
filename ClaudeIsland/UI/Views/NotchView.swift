@@ -308,6 +308,8 @@ struct NotchView: View {
             return Color(red: 0.95, green: 0.95, blue: 0.95) // White/Silver
         case .gemini:
             return Color(red: 0.4, green: 0.4, blue: 1.0) // Gemini purple-blue
+        case .qwen:
+            return Color(red: 0.38, green: 0.28, blue: 0.88) // Qwen purple
         }
     }
     
@@ -324,6 +326,8 @@ struct NotchView: View {
             return "⦿"
         case .gemini:
             return "G"
+        case .qwen:
+            return "Q"
         }
     }
     
@@ -341,6 +345,8 @@ struct NotchView: View {
             CursorIcon(size: size, color: activityColor, animate: animate)
         case .gemini:
             GeminiIcon(size: size, color: activityColor, animate: animate)
+        case .qwen:
+            QwenIcon(size: size, color: activityColor, animate: animate)
         }
     }
 
