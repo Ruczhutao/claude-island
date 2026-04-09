@@ -20,15 +20,16 @@
 
 - **🎨 待机图标系统** —— 6款像素风格图标（狗、猫、机器人、岛屿、幽灵、灯塔），带状态动画
 - **🔴 动态刘海 UI** —— 从 MacBook 刘海处展开，显示会话状态和控制选项
-- **🤖 多 AI 支持** —— 同时监控 Claude Code、Codex CLI、Kimi CLI、Cursor 和 Gemini CLI
+- **🤖 多 AI 支持** —— 同时监控 Claude Code、Codex CLI、Kimi CLI、Cursor、Gemini CLI 和 Qwen
 - **📊 状态指示器** —— 视觉状态符号：!（处理中）、?（等待审批）、✓（完成）
 - **🔔 智能通知** —— 会话开始、需要审批、任务完成时的音效提醒
 - **✅ 权限处理** —— 
-  - Claude：直接在刘海栏中批准/拒绝
-  - Codex/Kimi/Cursor：显示"前往终端"按钮快速跳转
+  - Claude / Qwen：直接在刘海栏中批准/拒绝
+  - Codex / Kimi / Gemini：显示“前往终端审批”按钮快速跳转
+  - Cursor：返回 IDE 中审批
 - **💬 聊天历史** —— 查看完整的对话记录，支持 Markdown 渲染
 - **🏷️ 状态栏短语** —— 关闭态刘海栏内显示滚动状态文字，支持主题包（默认/汪星人/自定义）
-- **✨ 状态栏文字动效** —— 4 种动画效果：滚动、快闪、打字机、静态，支持调节动画速度
+- **✨ 状态栏文字动效** —— 5 种动画效果：滚动、快闪、打字机、逐星、静态，支持调节动画速度
 - **🖥️ 浏览器全屏自动隐藏** —— Safari、Chrome、Firefox、Edge、Arc、Brave 进入全屏时刘海栏自动隐藏
 - **⚙️ 设置窗口** —— 弹出式偏好设置，支持选择待机图标、声音、状态栏短语、CLI hooks 管理
 - **🔧 自动配置** —— 启用后会自动安装对应 CLI 的 hooks
@@ -40,8 +41,8 @@
 | **Claude Code** | ✅ 已支持 | ✅ 刘海栏内 |
 | **Codex** | ✅ 已支持 | 🔘 终端操作 |
 | **Kimi** | ✅ 已支持 | 🔘 终端操作 |
-| **Cursor** | ✅ 已支持 (3.0+) | 🔘 终端操作 |
-| **Qwen** | 🚧 即将支持 | — |
+| **Cursor** | ✅ 已支持 (3.0+) | 🔘 IDE 操作 |
+| **Qwen** | ✅ 已支持 | ✅ 刘海栏内 |
 | **Gemini CLI** | ✅ 已支持 | 🔘 终端操作 |
 | **GitHub Copilot** | 🚧 即将支持 | — |
 
@@ -52,9 +53,35 @@
 
 ## 安装
 
-下载最新 Release 或从源码构建：
+### 方式 1：下载 Release（推荐）
+
+从 [Releases](https://github.com/Ruczhutao/claude-island/releases) 下载最新 DMG，然后拖到 Applications。
+
+### 方式 2：本地构建（无需 Apple Developer 账号）
+
+适合本地开发或无签名测试：
 
 ```bash
+# 克隆仓库
+git clone https://github.com/Ruczhutao/claude-island.git
+cd claude-island
+
+# 使用本地签名构建
+./scripts/build-local.sh
+
+# DMG 输出位置：
+# releases/AgentIsland-x.x.x-local.dmg
+```
+
+**首次启动**：右键应用 → 打开 → 打开，以绕过未签名本地构建的 Gatekeeper 提示。
+
+### 方式 3：Xcode 构建（开发）
+
+```bash
+# 在 Xcode 中打开
+open ClaudeIsland.xcodeproj
+
+# 或命令行构建
 xcodebuild -scheme ClaudeIsland -configuration Release build
 ```
 
@@ -66,6 +93,7 @@ Agent Island 会在各 CLI 的配置目录安装 hooks：
 - `~/.kimi/hooks/` —— Kimi CLI
 - `~/.cursor/hooks.json` —— Cursor (3.0+)
 - `~/.gemini/settings.json` —— Gemini CLI
+- `~/.qwen/settings.json` —— Qwen
 
 Hooks 通过 Unix socket (`/tmp/claude-island.sock`) 与会话状态通信，应用监听事件并在刘海栏中展示。
 
