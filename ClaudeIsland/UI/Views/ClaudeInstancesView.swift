@@ -78,7 +78,13 @@ struct ClaudeInstancesView: View {
                         onChat: { openChat(session) },
                         onArchive: { archiveSession(session) },
                         onApprove: { approveSession(session) },
-                        onReject: { rejectSession(session) }
+                        onReject: { rejectSession(session) },
+                        onSendText: { text in
+                            Task {
+                                await sendMessageToSession(session, text: text)
+                                viewModel.notchClose()
+                            }
+                        }
                     )
                     .id(session.stableId)
                 }
@@ -113,6 +119,35 @@ struct ClaudeInstancesView: View {
     private func archiveSession(_ session: SessionState) {
         sessionMonitor.archiveSession(sessionId: session.sessionId)
     }
+
+    private func sendMessageToSession(_ session: SessionState, text: String) async {
+        guard session.isInTmux, let tty = session.tty else { return }
+        if let target = await findTmuxTarget(tty: tty) {
+            _ = await ToolApprovalHandler.shared.sendMessage(text, to: target)
+        }
+    }
+
+    private func findTmuxTarget(tty: String) async -> TmuxTarget? {
+        guard let tmuxPath = await TmuxPathFinder.shared.getTmuxPath() else { return nil }
+        do {
+            let output = try await ProcessExecutor.shared.run(
+                tmuxPath,
+                arguments: ["list-panes", "-a", "-F", "#{session_name}:#{window_index}.#{pane_index} #{pane_tty}"]
+            )
+            for line in output.components(separatedBy: "\n") {
+                let parts = line.components(separatedBy: " ")
+                guard parts.count >= 2 else { continue }
+                let target = parts[0]
+                let paneTty = parts[1].replacingOccurrences(of: "/dev/", with: "")
+                if paneTty == tty {
+                    return TmuxTarget(from: target)
+                }
+            }
+        } catch {
+            return nil
+        }
+        return nil
+    }
 }
 
 // MARK: - Instance Row
@@ -124,6 +159,7 @@ struct InstanceRow: View {
     let onArchive: () -> Void
     let onApprove: () -> Void
     let onReject: () -> Void
+    let onSendText: (String) -> Void
 
     @State private var isHovered = false
     @State private var spinnerPhase = 0
@@ -248,23 +284,46 @@ struct InstanceRow: View {
 
             // Action icons or approval buttons
             if isWaitingForApproval && isInteractiveTool {
-                // Interactive tools like AskUserQuestion - show chat + terminal buttons
-                HStack(spacing: 8) {
-                    if supportsChatHistory {
-                        IconButton(icon: "bubble.left") {
-                            onChat()
+                if let options = session.pendingToolOptions, !options.isEmpty {
+                    // AskUserQuestion with options - show compact inline buttons
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(options, id: \.label) { option in
+                                Button {
+                                    onSendText(option.label)
+                                } label: {
+                                    Text(option.label)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundColor(.black)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 5)
+                                        .background(Color.white.opacity(0.9))
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                } else {
+                    // Interactive tools like AskUserQuestion - show chat + terminal buttons
+                    HStack(spacing: 8) {
+                        if supportsChatHistory {
+                            IconButton(icon: "bubble.left") {
+                                onChat()
+                            }
+                        }
 
-                    // Go to Terminal button (only if yabai available)
-                    if isYabaiAvailable {
-                        TerminalButton(
-                            isEnabled: session.isInTmux,
-                            onTap: { onFocus() }
-                        )
+                        // Go to Terminal button (only if yabai available)
+                        if isYabaiAvailable {
+                            TerminalButton(
+                                isEnabled: session.isInTmux,
+                                onTap: { onFocus() }
+                            )
+                        }
                     }
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
-                .transition(.opacity.combined(with: .scale(scale: 0.9)))
             } else if isWaitingForApproval {
                 // Different UI based on provider's approval capability
                 if session.supportsInNotchApproval {

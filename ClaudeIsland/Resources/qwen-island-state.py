@@ -134,10 +134,8 @@ def main():
             if decision == "allow":
                 output = {
                     "hookSpecificOutput": {
-                        "decision": {
-                            "behavior": "allow",
-                            "message": reason or "Approved by user via ClaudeIsland"
-                        }
+                        "hookEventName": "PermissionRequest",
+                        "decision": {"behavior": "allow"},
                     }
                 }
                 print(json.dumps(output))
@@ -146,10 +144,11 @@ def main():
             elif decision == "deny":
                 output = {
                     "hookSpecificOutput": {
+                        "hookEventName": "PermissionRequest",
                         "decision": {
                             "behavior": "deny",
-                            "message": reason or "Denied by user via ClaudeIsland"
-                        }
+                            "message": reason or "Denied by user via ClaudeIsland",
+                        },
                     }
                 }
                 print(json.dumps(output))

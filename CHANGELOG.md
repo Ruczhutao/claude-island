@@ -6,8 +6,25 @@
 
 ## [Unreleased]
 
+## [2.3.4] - 2026-04-11
+
 ### 新增
-- 会话列表显示会话保留时长（如 `5m`、`1h23m`、`2d`）
+
+#### AskUserQuestion Notch 内多选项支持
+- **会话列表与聊天视图内联选项按钮**
+  - 当 `AskUserQuestion` 工具提供 `options` 选项时，Notch 直接显示横向滚动的胶囊按钮
+  - 每个选项对应一个可点击的 label，点击后自动发送到终端会话并关闭 Notch
+  - **文件**：`ClaudeIsland/UI/Views/ChatView.swift`、`ClaudeIsland/UI/Views/ClaudeInstancesView.swift`
+
+### 修复
+
+#### Qwen CLI Notch 内审批真正生效
+- **修复 PermissionRequest 响应格式** — `qwen-island-state.py` 返回的 JSON 缺少 `hookEventName`，导致 Qwen CLI 忽略 allow/deny 决策
+  - 现在响应格式与 Claude hook 完全一致：`{"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {...}}}`
+  - **文件**：`ClaudeIsland/Resources/qwen-island-state.py`
+
+### 变更
+- 版本号更新至 **2.3.4**（Build 10）
 
 ## [2.3.2] - 2026-04-09
 

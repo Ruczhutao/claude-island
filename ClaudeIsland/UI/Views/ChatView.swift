@@ -70,12 +70,20 @@ struct ChatView: View {
                 // Approval bar, interactive prompt, or Input bar
                 if let tool = approvalTool {
                     if tool == "AskUserQuestion" {
-                        // Interactive tools - show prompt to answer in terminal
-                        interactivePromptBar
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .move(edge: .bottom)),
-                                removal: .opacity
-                            ))
+                        if let options = session.pendingToolOptions, !options.isEmpty {
+                            askUserQuestionBar(options: options)
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .move(edge: .bottom)),
+                                    removal: .opacity
+                                ))
+                        } else {
+                            // Interactive tools - show prompt to answer in terminal
+                            interactivePromptBar
+                                .transition(.asymmetric(
+                                    insertion: .opacity.combined(with: .move(edge: .bottom)),
+                                    removal: .opacity
+                                ))
+                        }
                     } else {
                         approvalBar(tool: tool)
                             .transition(.asymmetric(
@@ -425,6 +433,43 @@ struct ChatView: View {
             isInTmux: session.isInTmux,
             onGoToTerminal: { focusTerminal() }
         )
+    }
+
+    /// Bar showing AskUserQuestion options as clickable buttons
+    private func askUserQuestionBar(options: [QuestionOption]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(session.pendingToolInput ?? "Claude Code 需要你的输入")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(TerminalColors.amber)
+                .lineLimit(2)
+
+            // Options as horizontal scrollable buttons
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(options, id: \.label) { option in
+                        Button {
+                            Task {
+                                await sendToSession(option.label)
+                                viewModel.notchClose()
+                            }
+                        } label: {
+                            Text(option.label)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color.white.opacity(0.9))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .frame(minHeight: 44)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.black.opacity(0.2))
     }
 
     // MARK: - Autoscroll Management

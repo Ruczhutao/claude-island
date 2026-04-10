@@ -184,6 +184,19 @@ struct SessionState: Equatable, Identifiable, Sendable {
         activePermission?.formattedInput
     }
 
+    /// AskUserQuestion options extracted from pending tool input, if available
+    var pendingToolOptions: [QuestionOption]? {
+        guard pendingToolName == "AskUserQuestion" else { return nil }
+        guard let toolInput = activePermission?.toolInput else { return nil }
+        guard let optionsValue = toolInput["options"]?.value as? [Any] else { return nil }
+        return optionsValue.compactMap { item -> QuestionOption? in
+            guard let dict = item as? [String: Any],
+                  let label = dict["label"] as? String else { return nil }
+            let description = dict["description"] as? String
+            return QuestionOption(label: label, description: description)
+        }
+    }
+
     /// Last message content
     var lastMessage: String? {
         conversationInfo.lastMessage
