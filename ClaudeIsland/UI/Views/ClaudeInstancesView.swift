@@ -128,11 +128,12 @@ struct InstanceRow: View {
     @State private var isHovered = false
     @State private var spinnerPhase = 0
     @State private var isYabaiAvailable = false
+    @State private var durationText: String = ""
+    @State private var durationUpdateFlag: Date = Date()
 
     private let claudeOrange = Color(red: 0.85, green: 0.47, blue: 0.34)
-    // Ellipsis animation: "  ", ".  ", ".. ", "..." cycling
-    private let ellipsisStates = ["", ".", "..", "..."]
-    private let ellipsisTimer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
+    // Timer for state indicator animation
+    private let ellipsisTimer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
 
     /// Whether we're showing the approval UI
     private var isWaitingForApproval: Bool {
@@ -159,8 +160,8 @@ struct InstanceRow: View {
         HStack(alignment: .center, spacing: 10) {
             // State indicator on left
             stateIndicator
-                .frame(width: 24, alignment: .leading)
-            
+                .frame(width: 16, alignment: .center)
+
             // Provider icon
             providerIcon
                 .frame(width: 14)
@@ -239,6 +240,11 @@ struct InstanceRow: View {
             }
 
             Spacer(minLength: 0)
+
+            // Session duration
+            Text(durationText)
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.35))
 
             // Action icons or approval buttons
             if isWaitingForApproval && isInteractiveTool {
@@ -327,6 +333,11 @@ struct InstanceRow: View {
         .onHover { isHovered = $0 }
         .task {
             isYabaiAvailable = await WindowFinder.shared.isYabaiAvailable()
+            // Initialize duration text
+            durationText = session.sessionDuration
+        }
+        .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
+            durationText = session.sessionDuration
         }
     }
 
@@ -334,23 +345,24 @@ struct InstanceRow: View {
     private var stateIndicator: some View {
         switch session.phase {
         case .processing, .compacting:
-            // Ellipsis animation with provider color
-            Text(ellipsisStates[spinnerPhase % ellipsisStates.count])
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundColor(providerColor)
-                .frame(width: 20, height: 12, alignment: .leading)
-                .clipped()
+            // Pulsing dot with provider color for active sessions
+            Circle()
+                .fill(providerColor)
+                .frame(width: 6, height: 6)
+                .scaleEffect(1.0 + 0.3 * sin(Double(spinnerPhase) * .pi / 2))
+                .opacity(0.7 + 0.3 * sin(Double(spinnerPhase) * .pi / 2))
                 .onReceive(ellipsisTimer) { _ in
-                    spinnerPhase = (spinnerPhase + 1) % ellipsisStates.count
+                    spinnerPhase = (spinnerPhase + 1) % 4
                 }
         case .waitingForApproval:
-            // Amber ellipsis for approval waiting
-            Text(ellipsisStates[spinnerPhase % ellipsisStates.count])
-                .font(.system(size: 14, weight: .medium, design: .monospaced))
-                .foregroundColor(TerminalColors.amber)
-                .frame(width: 24, alignment: .leading)
+            // Amber pulsing dot for approval waiting
+            Circle()
+                .fill(TerminalColors.amber)
+                .frame(width: 7, height: 7)
+                .scaleEffect(1.0 + 0.4 * sin(Double(spinnerPhase) * .pi / 2))
+                .opacity(0.6 + 0.4 * sin(Double(spinnerPhase) * .pi / 2))
                 .onReceive(ellipsisTimer) { _ in
-                    spinnerPhase = (spinnerPhase + 1) % ellipsisStates.count
+                    spinnerPhase = (spinnerPhase + 1) % 4
                 }
         case .waitingForInput:
             Circle()
@@ -359,7 +371,7 @@ struct InstanceRow: View {
         case .idle, .ended:
             Circle()
                 .fill(Color.white.opacity(0.2))
-                .frame(width: 6, height: 6)
+                .frame(width: 5, height: 5)
         }
     }
     

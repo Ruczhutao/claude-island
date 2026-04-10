@@ -115,6 +115,29 @@ struct SessionState: Equatable, Identifiable, Sendable {
         phase.needsAttention
     }
 
+    /// Formatted session duration (e.g., "5m", "1h23m", "2d")
+    var sessionDuration: String {
+        let elapsed = Date().timeIntervalSince(createdAt)
+        let seconds = max(0, Int(elapsed))
+        let minutes = seconds / 60
+        let hours = minutes / 60
+        let days = hours / 24
+
+        if days >= 1 {
+            return "\(days)d"
+        } else if hours >= 1 {
+            let remainingMinutes = minutes % 60
+            if remainingMinutes > 0 {
+                return "\(hours)h\(remainingMinutes)m"
+            }
+            return "\(hours)h"
+        } else if minutes >= 1 {
+            return "\(minutes)m"
+        } else {
+            return "\(seconds)s"
+        }
+    }
+
     /// The active permission context, if any
     var activePermission: PermissionContext? {
         if case .waitingForApproval(let ctx) = phase {

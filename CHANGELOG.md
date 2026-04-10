@@ -4,6 +4,11 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
+## [Unreleased]
+
+### 新增
+- 会话列表显示会话保留时长（如 `5m`、`1h23m`、`2d`）
+
 ## [2.3.2] - 2026-04-09
 
 ### 新增
