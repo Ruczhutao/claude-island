@@ -468,13 +468,13 @@ class HookSocketServer {
             } else if let cachedToolUseId = popCachedToolUseId(event: event) {
                 toolUseId = cachedToolUseId
             } else {
-                logger.warning("Permission request missing tool_use_id for \(event.sessionId.prefix(8), privacy: .public) - no cache hit")
-                close(clientSocket)
-                eventHandler?(event)
-                return
+                // Fallback: use synthetic key from sessionId + tool name
+                let toolName = event.tool ?? "unknown"
+                toolUseId = "\(event.sessionId):\(toolName)"
+                logger.debug("Permission request missing tool_use_id for \(event.sessionId.prefix(8), privacy: .public) - using synthetic key: \(toolName, privacy: .public)")
             }
 
-            logger.debug("Permission request - keeping socket open for \(event.sessionId.prefix(8), privacy: .public) tool:\(toolUseId.prefix(12), privacy: .public)")
+            logger.debug("Permission request - keeping socket open for \(event.sessionId.prefix(8), privacy: .public) tool:\(toolUseId.prefix(min(12, toolUseId.count)), privacy: .public)")
 
             let updatedEvent = HookEvent(
                 providerRawValue: event.providerRawValue,
